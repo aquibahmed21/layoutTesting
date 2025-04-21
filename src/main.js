@@ -2,36 +2,32 @@ import './style.css'
 
 document.querySelector('#app').innerHTML = `
 
-<h3>Devices BEFORE getUserMedia()</h3>
-<label for="videoBeforeInput">Video Devices Input:</label>
-<select id="videoBeforeInput"></select><br>
-<label for="audioBeforeInput">Audio Devices Input:</label>
-<select id="audioBeforeInput"></select>
+<div class="container">
+  <h3>Devices BEFORE getUserMedia()</h3>
+  <label for="videoBeforeInput">Video Devices Input:</label>
+  <select id="videoBeforeInput"></select><br>
+  <label for="audioBeforeInput">Audio Devices Input:</label>
+  <select id="audioBeforeInput"></select>
+  <label for="videoBeforeOutput">Video Devices Output:</label>
+  <select id="videoBeforeOutput"></select><br>
+  <label for="audioBeforeOutput">Audio Devices Output:</label>
+  <select id="audioBeforeOutput"></select>
+</div>
 
-<br />
-
-<label for="videoBeforeOutput">Video Devices Output:</label>
-<select id="videoBeforeOutput"></select><br>
-<label for="audioBeforeOutput">Audio Devices Output:</label>
-<select id="audioBeforeOutput"></select>
-
-<br /><br />
-
-<h3>Devices AFTER getUserMedia()</h3>
-<label for="videoAfterInput">Video Devices Input:</label>
-<select id="videoAfterInput"></select><br>
-<label for="audioAfterInput">Audio Devices Input:</label>
-<select id="audioAfterInput"></select>
-
-<br />
-
-<label for="videoAfterOutput">Video Devices Output:</label>
-<select id="videoAfterOutput"></select><br>
-<label for="audioAfterOutput">Audio Devices Output:</label>
-<select id="audioAfterOutput"></select>
+<div class="container">
+  <h3>Devices AFTER getUserMedia()</h3>
+  <label for="videoAfterInput">Video Devices Input:</label>
+  <select id="videoAfterInput"></select><br>
+  <label for="audioAfterInput">Audio Devices Input:</label>
+  <select id="audioAfterInput"></select>
+  <label for="videoAfterOutput">Video Devices Output:</label>
+  <select id="videoAfterOutput"></select><br>
+  <label for="audioAfterOutput">Audio Devices Output:</label>
+  <select id="audioAfterOutput"></select>
+</div>
 
 <br /><br />
-<button id="startBtn">Start Camera</button>
+<button id="startBtn" class="full-width">Start Camera</button>
 `
 
 const startBtn = document.getElementById('startBtn');
@@ -44,7 +40,6 @@ const audioBeforeOutput = document.getElementById('audioBeforeOutput');
 
 const videoAfterInput = document.getElementById('videoAfterInput');
 const audioAfterInput = document.getElementById('audioAfterInput');
-
 const videoAfterOutput = document.getElementById('videoAfterOutput');
 const audioAfterOutput = document.getElementById('audioAfterOutput');
 
@@ -60,12 +55,6 @@ async function listDevices(videoDropdownInput, audioDropdownInput, videoDropdown
     const option = document.createElement('option');
     option.value = device.deviceId || '';
     option.text = device.label || `${device.kind}`;
-
-    // if (device.kind === 'videoinput') {
-    //   videoDropdown.appendChild(option);
-    // } else if (device.kind === 'audioinput') {
-    //   audioDropdown.appendChild(option);
-    // }
 
     if (device.kind === 'videoinput') {
       videoDropdownInput.appendChild(option);
@@ -105,7 +94,7 @@ startBtn.addEventListener('click', async () => {
 
     const stopBtn = document.createElement('button');
     stopBtn.textContent = 'Stop Camera';
-    document.body.appendChild(divContainer);
+    document.querySelector("#app").appendChild(divContainer);
     stopBtn.addEventListener('click', () => {
       stream.getTracks().forEach(track => track.stop());
       divContainer.remove();
