@@ -3,50 +3,87 @@ import './style.css'
 document.querySelector('#app').innerHTML = `
 
 <h3>Devices BEFORE getUserMedia()</h3>
-<label for="videoBefore">Video Devices:</label>
-<select id="videoBefore"></select><br>
-<label for="audioBefore">Audio Devices:</label>
-<select id="audioBefore"></select>
+<label for="videoBeforeInput">Video Devices Input:</label>
+<select id="videoBeforeInput"></select><br>
+<label for="audioBeforeInput">Audio Devices Input:</label>
+<select id="audioBeforeInput"></select>
+
+<br />
+
+<label for="videoBeforeOutput">Video Devices Output:</label>
+<select id="videoBeforeOutput"></select><br>
+<label for="audioBeforeOutput">Audio Devices Output:</label>
+<select id="audioBeforeOutput"></select>
+
+<br /><br />
 
 <h3>Devices AFTER getUserMedia()</h3>
-<label for="videoAfter">Video Devices:</label>
-<select id="videoAfter"></select><br>
-<label for="audioAfter">Audio Devices:</label>
-<select id="audioAfter"></select>
-<br /><br /><br />
-<button id="startBtn">Start Camera</button>
+<label for="videoAfterInput">Video Devices Input:</label>
+<select id="videoAfterInput"></select><br>
+<label for="audioAfterInput">Audio Devices Input:</label>
+<select id="audioAfterInput"></select>
+
 <br />
+
+<label for="videoAfterOutput">Video Devices Output:</label>
+<select id="videoAfterOutput"></select><br>
+<label for="audioAfterOutput">Audio Devices Output:</label>
+<select id="audioAfterOutput"></select>
+
+<br /><br />
+<button id="startBtn">Start Camera</button>
 `
 
 const startBtn = document.getElementById('startBtn');
 
 
-const videoBefore = document.getElementById('videoBefore');
-const audioBefore = document.getElementById('audioBefore');
-const videoAfter = document.getElementById('videoAfter');
-const audioAfter = document.getElementById('audioAfter');
+const videoBeforeInput = document.getElementById('videoBeforeInput');
+const audioBeforeInput = document.getElementById('audioBeforeInput');
+const videoBeforeOutput = document.getElementById('videoBeforeOutput');
+const audioBeforeOutput = document.getElementById('audioBeforeOutput');
 
-async function listDevices(videoDropdown, audioDropdown) {
+const videoAfterInput = document.getElementById('videoAfterInput');
+const audioAfterInput = document.getElementById('audioAfterInput');
+
+const videoAfterOutput = document.getElementById('videoAfterOutput');
+const audioAfterOutput = document.getElementById('audioAfterOutput');
+
+async function listDevices(videoDropdownInput, audioDropdownInput, videoDropdownOutput, audioDropdownOutput) {
   const devices = await navigator.mediaDevices.enumerateDevices();
 
-  videoDropdown.innerHTML = '';
-  audioDropdown.innerHTML = '';
+  videoDropdownInput.innerHTML = ""
+  audioDropdownInput.innerHTML = ""
+  videoDropdownOutput.innerHTML = ""
+  audioDropdownOutput.innerHTML = ""
 
   devices.forEach(device => {
     const option = document.createElement('option');
     option.value = device.deviceId || '';
     option.text = device.label || `${device.kind}`;
 
+    // if (device.kind === 'videoinput') {
+    //   videoDropdown.appendChild(option);
+    // } else if (device.kind === 'audioinput') {
+    //   audioDropdown.appendChild(option);
+    // }
+
     if (device.kind === 'videoinput') {
-      videoDropdown.appendChild(option);
+      videoDropdownInput.appendChild(option);
     } else if (device.kind === 'audioinput') {
-      audioDropdown.appendChild(option);
+      audioDropdownInput.appendChild(option);
+    } else if (device.kind === 'videooutput') {
+      videoDropdownOutput.appendChild(option);
+    } else if (device.kind === 'audiooutput') {
+      audioDropdownOutput.appendChild(option);
     }
   });
 }
 
 // List devices BEFORE getUserMedia
-listDevices(videoBefore, audioBefore);
+listDevices(videoBeforeInput,
+  audioBeforeInput,
+  videoBeforeOutput,
+  audioBeforeOutput);
 let stream = null;
 
 startBtn.addEventListener('click', async () => {
@@ -76,7 +113,7 @@ startBtn.addEventListener('click', async () => {
     divContainer.appendChild(stopBtn);
 
     // List devices AFTER getUserMedia
-    listDevices(videoAfter, audioAfter);
+    listDevices(videoAfterInput, audioAfterInput, videoAfterOutput, audioAfterOutput);
   } catch (err) {
     alert('Error: ' + err.message);
     console.error(err);
