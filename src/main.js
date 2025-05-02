@@ -17,3 +17,25 @@ document.querySelector('#app').innerHTML = `
     </div>
   </div>
 `
+
+document.addEventListener('focus', function(event) {
+  const target = event.target;
+  if (
+    target.matches('input, textarea, [contenteditable]')
+  ) {
+    console.log('Focused:', target);
+    document.body.style.height = window.visualViewport.height + 'px';
+    // Your custom logic here
+  }
+}, true); // useCapture: true to catch non-bubbling focus
+
+document.addEventListener('blur', function(event) {
+  const target = event.target;
+  if (
+    target.matches('input, textarea, [contenteditable]')
+  ) {
+    console.log('Blurred:', target);
+    document.body.style.height = '';
+    // Your custom logic here
+  }
+}, true); // useCapture: true to catch non-bubbling blur
