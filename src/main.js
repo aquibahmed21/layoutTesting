@@ -23,9 +23,9 @@ document.addEventListener('focus', async function(event) {
   if (
     target.matches('input, textarea, [contenteditable]')
   ) {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
     console.log('Focused:', target);
-    document.body.style.height = window.visualViewport.height + 'px';
+    document.querySelector('.chat-container').style.height = window.visualViewport.height + 'px';
     // Your custom logic here
   }
 }, true); // useCapture: true to catch non-bubbling focus
@@ -36,7 +36,7 @@ document.addEventListener('blur', function(event) {
     target.matches('input, textarea, [contenteditable]')
   ) {
     console.log('Blurred:', target);
-    document.body.style.height = '';
+    document.querySelector('.chat-container').style.height = '';
     // Your custom logic here
   }
 }, true); // useCapture: true to catch non-bubbling blur
