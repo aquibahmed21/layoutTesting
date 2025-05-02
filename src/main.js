@@ -18,11 +18,12 @@ document.querySelector('#app').innerHTML = `
   </div>
 `
 
-document.addEventListener('focus', function(event) {
+document.addEventListener('focus', async function(event) {
   const target = event.target;
   if (
     target.matches('input, textarea, [contenteditable]')
   ) {
+    await new Promise(resolve => setTimeout(resolve, 100));
     console.log('Focused:', target);
     document.body.style.height = window.visualViewport.height + 'px';
     // Your custom logic here
