@@ -1,92 +1,179 @@
-/* Basic Reset */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 body {
-  font-family: Arial, sans-serif;
-  background: #f2f2f2;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.chat-container {
-  width: 100dvw;
-  height: 100dvh;
-  background: white;
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: #f0f2f5;
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  transition: height 0.3s ease-in-out;
+  height: 100vh;
+}
+/* Overall layout */
+.chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+  font-family: "Segoe UI", sans-serif;
+  background-color: #f9f9f9;
 }
 
 /* Header */
 .chat-header {
-  background: #005f73;
-  color: white;
-  padding: 15px;
-  text-align: center;
-  font-weight: bold;
   flex-shrink: 0;
+  background: #fff;
+  padding: 10px 15px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  align-items: center;
 }
 
-/* Messages */
-.chat-messages {
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
+.user-info {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 10px;
 }
 
-.message-row {
-  max-width: 70%;
-  padding: 10px 15px;
-  border-radius: 20px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.message-row.sent {
-  align-self: flex-end;
-  background: #d1e7dd;
-  color: #0f5132;
-}
-
-.message-row.received {
-  align-self: flex-start;
-  background: #f8d7da;
-  color: #842029;
-}
-
-/* Input */
-.chat-input-wrapper {
-  padding: 10px;
-  background: #eee;
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: url('https://loremflickr.com/80/80/face?lock=2') center/cover;
   flex-shrink: 0;
-  border-top: 1px solid #ccc;
 }
 
-.chat-input {
-  width: 100%;
-  min-height: 40px;
-  max-height: 100px;
+.meta .name {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.meta .status {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.online-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #34c759;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+/* Chat area */
+.chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 15px;
+  background: #f2f2f2;
+  
+}
+
+/* Chat rows */
+.chat-row {
+  background: #fff;
   padding: 10px;
-  background: white;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  max-width: 80%;
+  word-wrap: break-word;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  animation: fadeIn 0.2s ease-in;
+  width: fit-content;
+}
+
+.chat-row.self {
+  margin-left: auto;
+  background: #dcf8c6;
+}
+
+/* Input area */
+.chat-input {
+  flex-shrink: 0;
+  display: flex;
+  padding: 10px;
+  background: #fff;
+  border-top: 1px solid #ddd;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 10px;
+  font-size: 1rem;
   border: 1px solid #ccc;
   border-radius: 20px;
-  overflow-y: auto;
   outline: none;
 }
 
-.chat-input:empty:before {
-  content: attr(placeholder);
-  color: #999;
-  pointer-events: none;
+.chat-input button {
+  margin-left: 10px;
+  padding: 10px 16px;
+  font-size: 1rem;
+  border: none;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.chat-input button:hover {
+  background-color: #45a049;
+}
+
+/* Shimmer Effect */
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+  background: #eee;
+  overflow: hidden;
+  min-width: 100px;
+  min-height: 80px;
+}
+
+.image-wrapper.loading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150px;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.6) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    left: -150px;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.image-wrapper img {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  width: 100%;
+}
+
+.image-wrapper img.loaded {
+  opacity: 1;
+}
+
+/* Responsive tweaks */
+@media (max-width: 600px) {
+  .chat-row {
+    max-width: 85%;
+  }
+  .chat-input input {
+    font-size: 0.9rem;
+  }
+  .chat-input button {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
 }
