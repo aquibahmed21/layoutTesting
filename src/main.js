@@ -2,6 +2,13 @@ import './style.css';
 
 const chatContainer = document.getElementById('chat-container');
 const messageInput = document.getElementById('message-input');
+const sendButton = document.getElementById('send-button');
+const demoButton = document.getElementById('demo-button');
+
+// Event listeners
+sendButton.addEventListener('click', sendMessage);
+demoButton.addEventListener('click', demoInsert);
+// Demo messages
 
 const demoMessages = [
   "Hey, how's it going?",
