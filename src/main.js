@@ -2,8 +2,8 @@ import './style.css';
 
 const chatContainer = document.getElementById('chat-container');
 const messageInput = document.getElementById('message-input');
-const sendButton = document.getElementById('send-button');
-const demoButton = document.getElementById('demo-button');
+const sendButton = document.getElementById("send-button")
+const demoButton = document.getElementById("send-demo")
 
 // Event listeners
 sendButton.addEventListener('click', sendMessage);
