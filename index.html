@@ -3,27 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <title>Layout Testing</title>
-  <script type="module" crossorigin src="/layoutTesting/assets/index-BI78q3Lc.js"></script>
-  <link rel="stylesheet" crossorigin href="/layoutTesting/assets/index-DnTSdu96.css">
+  <script type="module" crossorigin src="/layoutTesting/assets/index-IL-587-J.js"></script>
+  <link rel="stylesheet" crossorigin href="/layoutTesting/assets/index-BtQFhyGO.css">
 </head>
 <body>
-  <div class="chat-wrapper">
-    <div class="chat-header">
-      <div class="user-info">
-        <div class="avatar"></div>
-        <div class="meta">
-          <div class="name">Alice Johnson</div>
-          <div class="status"><span class="online-dot"></span> Last seen 2 minutes ago</div>
-        </div>
-      </div>
-    </div>
+  <div id="chat-container"></div>
 
-    <div class="chat" id="chat"></div>
-
-    <div class="chat-input">
-      <input type="text" id="messageInput" placeholder="Type your message..." />
-      <button id="sendButton">Send</button>
-    </div>
+  <div id="input-area">
+    <input type="text" id="message-input" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+    <button onclick="demoInsert()">Demo Message</button>
   </div>
 </body>
 </html>
