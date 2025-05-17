@@ -1,116 +1,68 @@
-import './style.css';
-
-const chatContainer = document.getElementById('chat-container');
-const messageInput = document.getElementById('message-input');
-const sendButton = document.getElementById('send-button');
-const demoButton = document.getElementById('demo-button');
-
-// Event listeners
-sendButton.addEventListener('click', sendMessage);
-demoButton.addEventListener('click', demoInsert);
-// Demo messages
-
-const demoMessages = [
-  "Hey, how's it going?",
-  "I'm good, thanks! You?",
-  "Just chilling... image:https://loremflickr.com/200/140",
-  "Check this out: image:https://loremflickr.com/150/120",
-  "That's awesome!",
-  "Here's a sunset pic: https://loremflickr.com/200/130",
-  "Got any weekend plans?",
-  "Thinking of going hiking.",
-  "Nice! Take pics :)",
-  "Hey, how's it going?",
-  "I'm good, thanks! You?",
-  "Just chilling... image:https://loremflickr.com/200/140",
-  "Check this out: image:https://loremflickr.com/150/140",
-  "That's awesome!",
-  "Here's a sunset pic: https://loremflickr.com/200/130",
-  "Got any weekend plans?",
-  "Thinking of going hiking.",
-  "Nice! Take pics :)",
-  "Definitely!"
+const videoSources = [
+  'https://www.w3schools.com/html/mov_bbb.mp4',
+  'https://www.w3schools.com/html/movie.mp4'
 ];
 
-function createMessageElement(content) {
-  const message = document.createElement('div');
-  message.className = 'message';
+const videos = [];
+const audioSelect = document.getElementById('audioSelect');
 
-  if (content.includes('image:')) {
-    const [text, imgUrl] = content.split('image:');
-    if (text.trim()) {
-      message.appendChild(document.createTextNode(text.trim()));
+async function setupAudioOutputs() {
+  if (!navigator.mediaDevices?.enumerateDevices || !HTMLMediaElement.prototype.setSinkId) {
+    alert("Your browser does not support audio output selection.");
+    return;
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+
+  for (const device of audioOutputs) {
+    const option = document.createElement('option');
+    option.value = device.deviceId;
+    option.textContent = device.label || `Device ${device.deviceId}`;
+    audioSelect.appendChild(option);
+  }
+
+  // Apply selected sink to all videos
+  audioSelect.addEventListener('change', async () => {
+    for (const video of videos) {
+      try {
+        await video.setSinkId(audioSelect.value || '');
+        console.log(`Audio output set to ${audioSelect.value || 'default'} for a video`);
+      } catch (err) {
+        console.error("Failed to set sink ID:", err);
+      }
     }
-    const img = document.createElement('img');
-    img.loading = "lazy";
-    img.src = imgUrl.trim();
-    message.appendChild(img);
-  } else {
-    message.textContent = content;
+  });
+}
+
+async function createVideos() {
+  const container = document.getElementById('videoContainer');
+
+  for (const src of videoSources) {
+    const video = document.createElement('video');
+    video.src = src;
+    video.controls = true;
+    video.autoplay = false; // autoplay restricted on most browsers
+    video.muted = true;     // unmute after user interaction
+    video.playsInline = true;
+    video.loop = true; // Loop the video
+
+    container.appendChild(video);
+    videos.push(video);
   }
 
-  return message;
+  // Wait for user gesture to unmute and play
+  document.body.addEventListener('click', async () => {
+    for (const video of videos) {
+      video.muted = false;
+      try {
+        await video.play();
+      } catch (err) {
+        console.warn('Autoplay error:', err);
+      }
+    }
+  }, { once: true });
 }
 
-function isScrolledToBottom() {
-  return chatContainer.scrollTop <= 5;
-}
-
-function scrollToBottom() {
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
-function appendMessage(content, shouldAutoScroll) {
-  const messageEl = createMessageElement(content);
-  chatContainer.insertBefore(messageEl, chatContainer.firstChild);
-
-  const media = messageEl.querySelectorAll('img');
-  if (media.length > 0) {
-    let loaded = 0;
-    media.forEach(img => {
-      img.onload = img.onerror = () => {
-        loaded++;
-        if (loaded === media.length && shouldAutoScroll) {
-          requestAnimationFrame(() => scrollToBottom());
-        }
-      };
-    });
-  } else if (shouldAutoScroll) {
-    scrollToBottom();
-  }
-}
-
-function sendMessage() {
-  const content = messageInput.value.trim();
-  if (!content) return;
-
-  const shouldAutoScroll = isScrolledToBottom();
-  appendMessage(content, shouldAutoScroll);
-
-  messageInput.value = '';
-}
-
-function demoInsert() {
-  const shouldAutoScroll = isScrolledToBottom();
-  const random = demoMessages[Math.floor(Math.random() * demoMessages.length)];
-  appendMessage(random, shouldAutoScroll);
-}
-
-function loadInitialMessages() {
-  // Reverse the demo messages to simulate older messages at top
-  const reversed = [...demoMessages].reverse();
-  reversed.forEach(msg => appendMessage(msg, false));
-
-  // Scroll to bottom once all are loaded
-  setTimeout(() => scrollToBottom(), 100);
-}
-
-// Init
-window.onload = () => {
-  loadInitialMessages();
-};
-
-// Send on Enter
-messageInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') sendMessage();
-});
+setupAudioOutputs();
+createVideos();

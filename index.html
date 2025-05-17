@@ -1,17 +1,23 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Layout Testing</title>
 </head>
-<body>
-  <div id="chat-container"></div>
 
-  <div id="input-area">
-    <input type="text" id="message-input" placeholder="Type a message...">
-    <button id="send-button">Send</button>
-    <button id="send-demo">Demo Message</button>
+<body>
+  <h2>Multi-Video Player with Shared Audio Output</h2>
+
+  <div class="video-container" id="videoContainer"></div>
+
+  <div>
+    <label for="audioSelect">Audio Output Device:</label>
+    <select id="audioSelect">
+    </select>
   </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>
