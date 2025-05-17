@@ -1,98 +1,109 @@
 import './style.css';
 
-document.querySelector('#sendButton').addEventListener('click', sendMessage);
-document.querySelector('#messageInput').addEventListener('keypress', function (e) {
-  if (e.key === 'Enter') {
-    sendMessage();
-  }
-});
+const chatContainer = document.getElementById('chat-container');
+const messageInput = document.getElementById('message-input');
 
-const chatContainer = document.getElementById("chat");
-
-const sampleMessages = [
-  "Hey there!",
-  "Look at this amazing place 😍",
-  "Check this link: <a href='https://openai.com' target='_blank'>OpenAI</a>",
-  "Hello <span class='mention'>@charlie</span>, thoughts?",
-  "Just a regular message.",
-  "Mentioning <span class='mention'>@dana</span> for feedback.",
-  "Another random idea dropping here just to test height."
+const demoMessages = [
+  "Hey, how's it going?",
+  "I'm good, thanks! You?",
+  "Just chilling... image:https://loremflickr.com/200/140",
+  "Check this out: image:https://loremflickr.com/150/120",
+  "That's awesome!",
+  "Here's a sunset pic: https://loremflickr.com/200/130",
+  "Got any weekend plans?",
+  "Thinking of going hiking.",
+  "Nice! Take pics :)",
+  "Hey, how's it going?",
+  "I'm good, thanks! You?",
+  "Just chilling... image:https://loremflickr.com/200/140",
+  "Check this out: image:https://loremflickr.com/150/140",
+  "That's awesome!",
+  "Here's a sunset pic: https://loremflickr.com/200/130",
+  "Got any weekend plans?",
+  "Thinking of going hiking.",
+  "Nice! Take pics :)",
+  "Definitely!"
 ];
 
-function getRandomImage() {
-  const w = Math.floor(Math.random() * 200) + 100;
-  const h = Math.floor(Math.random() * 150) + 100;
-  const topic = ['city', 'nature', 'people', 'technology', 'animals'][Math.floor(Math.random() * 5)];
-  return `<div class="image-wrapper loading"><img onload="this.classList.add('loaded'); this.parentElement.classList.remove('loading');" src="https://loremflickr.com/${w}/${h}/${topic}?random=${Math.random()}" alt="random image"/></div>`;
-}
+function createMessageElement(content) {
+  const message = document.createElement('div');
+  message.className = 'message';
 
-function appendChatMessages(count = 55) {
-  const fragment = document.createDocumentFragment();
-
-  for (let i = 0; i < count; i++) {
-    const isSelf = i % 3 === 0;
-    const div = document.createElement("div");
-    div.className = "chat-row" + (isSelf ? " self" : "");
-
-    const type = i % 4;
-    let content = "";
-
-    switch (type) {
-      case 0:
-        content = sampleMessages[i % sampleMessages.length];
-        break;
-      case 1:
-        content = sampleMessages[i % sampleMessages.length] + "<br>" + getRandomImage();
-        break;
-      case 2:
-        content = getRandomImage();
-        break;
-      case 3:
-        content = sampleMessages[i % sampleMessages.length] + " " + sampleMessages[(i + 1) % sampleMessages.length];
-        break;
+  if (content.includes('image:')) {
+    const [text, imgUrl] = content.split('image:');
+    if (text.trim()) {
+      message.appendChild(document.createTextNode(text.trim()));
     }
-
-    div.innerHTML = content;
-    fragment.appendChild(div);
+    const img = document.createElement('img');
+    img.loading = "lazy";
+    img.src = imgUrl.trim();
+    message.appendChild(img);
+  } else {
+    message.textContent = content;
   }
 
-  chatContainer.appendChild(fragment);
+  return message;
+}
 
-  // Scroll to bottom immediately
+function isScrolledToBottom() {
+  return chatContainer.scrollTop <= 5;
+}
+
+function scrollToBottom() {
   chatContainer.scrollTop = chatContainer.scrollHeight;
-
-  // after 2 seconds, add scroll behavior
-  // setTimeout(() => {
-  //   chatContainer.style.scrollBehavior = "smooth";
-  // }, 2000);
-
-  // Prevent scroll jump on image load
-  preventImageLoadScrollJump();
 }
 
-function preventImageLoadScrollJump() {
+function appendMessage(content, shouldAutoScroll) {
+  const messageEl = createMessageElement(content);
+  chatContainer.insertBefore(messageEl, chatContainer.firstChild);
 
-  const imgs = chatContainer.querySelectorAll("img");
-  imgs.forEach(img => {
-    if (!img.complete) {
-      img.addEventListener("load", () => {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      });
-    }
-  });
+  const media = messageEl.querySelectorAll('img');
+  if (media.length > 0) {
+    let loaded = 0;
+    media.forEach(img => {
+      img.onload = img.onerror = () => {
+        loaded++;
+        if (loaded === media.length && shouldAutoScroll) {
+          requestAnimationFrame(() => scrollToBottom());
+        }
+      };
+    });
+  } else if (shouldAutoScroll) {
+    scrollToBottom();
+  }
 }
-
-appendChatMessages();
 
 function sendMessage() {
-  const input = document.getElementById("messageInput");
-  const text = input.value.trim();
-  if (text) {
-    const row = document.createElement("div");
-    row.className = "chat-row self";
-    row.textContent = text;
-    chatContainer.appendChild(row);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-    input.value = "";
-  }
+  const content = messageInput.value.trim();
+  if (!content) return;
+
+  const shouldAutoScroll = isScrolledToBottom();
+  appendMessage(content, shouldAutoScroll);
+
+  messageInput.value = '';
 }
+
+function demoInsert() {
+  const shouldAutoScroll = isScrolledToBottom();
+  const random = demoMessages[Math.floor(Math.random() * demoMessages.length)];
+  appendMessage(random, shouldAutoScroll);
+}
+
+function loadInitialMessages() {
+  // Reverse the demo messages to simulate older messages at top
+  const reversed = [...demoMessages].reverse();
+  reversed.forEach(msg => appendMessage(msg, false));
+
+  // Scroll to bottom once all are loaded
+  setTimeout(() => scrollToBottom(), 100);
+}
+
+// Init
+window.onload = () => {
+  loadInitialMessages();
+};
+
+// Send on Enter
+messageInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendMessage();
+});
