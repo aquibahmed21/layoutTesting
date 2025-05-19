@@ -1,69 +1,76 @@
 const videoSources = [
-  'https://www.w3schools.com/html/mov_bbb.mp4',
-  'https://www.w3schools.com/html/movie.mp4'
-];
+      "https://www.w3schools.com/html/mov_bbb.mp4",
+      "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+    ];
 
-const videos = [];
-const audioSelect = document.getElementById('audioSelect');
+    const videosContainer = document.getElementById("videos");
+    const outputSelect = document.getElementById("audioOutputSelect");
+    const warning = document.getElementById("warning");
+    const videos = [];
 
-async function setupAudioOutputs() {
-  if (!navigator.mediaDevices?.enumerateDevices || !HTMLMediaElement.prototype.setSinkId) {
-    alert("Your browser does not support audio output selection.");
-    return;
-  }
+    const canSwitchAudio = typeof HTMLMediaElement.prototype.setSinkId === "function";
 
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+    async function getAudioOutputDevices() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter(d => d.kind === "audiooutput");
+    }
 
-  for (const device of audioOutputs) {
-    const option = document.createElement('option');
-    option.value = device.deviceId;
-    option.textContent = device.label || `Device ${device.deviceId}`;
-    audioSelect.appendChild(option);
-  }
+    async function setupAudioOutputSelect() {
+      const devices = await getAudioOutputDevices();
 
-  // Apply selected sink to all videos
-  audioSelect.addEventListener('change', async () => {
-    for (const video of videos) {
-      try {
-        await video.setSinkId(audioSelect.value || '');
-        console.log(`Audio output set to ${audioSelect.value || 'default'} for a video`);
-      } catch (err) {
-        console.error("Failed to set sink ID:", err);
+      // Clear and add default option
+      outputSelect.innerHTML = `<option value="">Default Device</option>`;
+      devices.forEach(device => {
+        const opt = document.createElement("option");
+        opt.value = device.deviceId;
+        opt.textContent = device.label || `Device ${device.deviceId}`;
+        outputSelect.appendChild(opt);
+      });
+
+      outputSelect.addEventListener("change", async () => {
+        const deviceId = outputSelect.value;
+        for (const video of videos) {
+          try {
+            await video.setSinkId(deviceId);
+          } catch (err) {
+            console.error("setSinkId failed:", err);
+          }
+        }
+      });
+    }
+
+    async function setupVideos() {
+      for (let src of videoSources) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "bg-white shadow rounded-lg p-4";
+
+        const video = document.createElement("video");
+        video.src = src;
+        video.controls = true;
+        video.autoplay = true;
+        video.loop = true;
+        video.className = "rounded w-full";
+
+        videos.push(video);
+        wrapper.appendChild(video);
+        videosContainer.appendChild(wrapper);
       }
     }
-  });
-}
 
-async function createVideos() {
-  const container = document.getElementById('videoContainer');
-
-  for (const src of videoSources) {
-    const video = document.createElement('video');
-    video.src = src;
-    video.controls = true;
-    video.autoplay = false; // autoplay restricted on most browsers
-    video.muted = true;     // unmute after user interaction
-    video.playsInline = true;
-    video.loop = true; // Loop the video
-
-
-    container.appendChild(video);
-    videos.push(video);
-  }
-
-  // Wait for user gesture to unmute and play
-  document.body.addEventListener('click', async () => {
-    for (const video of videos) {
-      video.muted = false;
-      try {
-        await video.play();
-      } catch (err) {
-        console.warn('Autoplay error:', err);
+    async function init() {
+      if (!canSwitchAudio) {
+        warning.classList.remove("hidden");
+        return;
       }
-    }
-  }, { once: true });
-}
 
-setupAudioOutputs();
-createVideos();
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.warn("Microphone permission needed for device labels.");
+      }
+
+      await setupVideos();
+      await setupAudioOutputSelect();
+    }
+
+    init();
