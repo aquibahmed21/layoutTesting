@@ -46,6 +46,7 @@ async function createVideos() {
     video.muted = true;     // unmute after user interaction
     video.playsInline = true;
     video.loop = true; // Loop the video
+    
 
     container.appendChild(video);
     videos.push(video);
