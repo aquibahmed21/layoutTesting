@@ -4,18 +4,28 @@
 <head>
   <meta charset="UTF-8" />
   <title>Layout Testing</title>
-  <script type="module" crossorigin src="/layoutTesting/assets/index-ctP2oT5G.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" crossorigin src="/layoutTesting/assets/index-CT38_IuI.js"></script>
 </head>
 
-<body>
-  <h2>Multi-Video Player with Shared Audio Output</h2>
+<body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-6">
+  <div class="max-w-5xl mx-auto">
+    <h1 class="text-3xl font-bold mb-6 text-center">🎬 Multi-Video Audio Output Demo</h1>
 
-  <div class="video-container" id="videoContainer"></div>
+    <!-- Global audio output toggle -->
+    <div class="mb-8 bg-white shadow rounded-lg p-4 flex items-center justify-between">
+      <label for="audioOutputSelect" class="text-lg font-medium">🔊 Output Audio To:</label>
+      <select id="audioOutputSelect" class="ml-4 p-2 rounded border border-gray-300 w-1/2">
+        <option value="">Default Device</option>
+      </select>
+    </div>
 
-  <div>
-    <label for="audioSelect">Audio Output Device:</label>
-    <select id="audioSelect">
-    </select>
+    <!-- Video containers -->
+    <div id="videos" class="grid grid-cols-1 sm:grid-cols-2 gap-6"></div>
+
+    <div id="warning" class="text-red-600 text-center mt-8 font-medium hidden">
+      Your browser does not support audio output switching.
+    </div>
   </div>
 
 </body>
