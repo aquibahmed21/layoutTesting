@@ -1,76 +1,32 @@
-const videoSources = [
-      "https://www.w3schools.com/html/mov_bbb.mp4",
-      "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
-    ];
+const startBtn = document.getElementById('startBtn');
+    const video = document.getElementById('video');
 
-    const videosContainer = document.getElementById("videos");
-    const outputSelect = document.getElementById("audioOutputSelect");
-    const warning = document.getElementById("warning");
-    const videos = [];
+    startBtn.addEventListener('click', async () => {
+      try {
+        // Get microphone input to simulate a WebRTC call (could also use audio file)
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
 
-    const canSwitchAudio = typeof HTMLMediaElement.prototype.setSinkId === "function";
+        // Assign stream to video element (will use speaker on Android)
+        video.srcObject = stream;
 
-    async function getAudioOutputDevices() {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter(d => d.kind === "audiooutput");
-    }
+        // Unmute after user gesture
+        video.muted = false;
+        await video.play();
 
-    async function setupAudioOutputSelect() {
-      const devices = await getAudioOutputDevices();
+        startBtn.disabled = true;
+        startBtn.textContent = 'Streaming...';
 
-      // Clear and add default option
-      outputSelect.innerHTML = `<option value="">Default Device</option>`;
-      devices.forEach(device => {
-        const opt = document.createElement("option");
-        opt.value = device.deviceId;
-        opt.textContent = device.label || `Device ${device.deviceId}`;
-        outputSelect.appendChild(opt);
-      });
-
-      outputSelect.addEventListener("change", async () => {
-        const deviceId = outputSelect.value;
-        for (const video of videos) {
+        // Optionally try to force output device (Android Chrome only)
+        if (typeof video.setSinkId === 'function') {
           try {
-            await video.setSinkId(deviceId);
+            await video.setSinkId('default'); // or 'speaker' if supported
+            console.log('Sink set to default');
           } catch (err) {
-            console.error("setSinkId failed:", err);
+            console.warn('Could not set sinkId:', err);
           }
         }
-      });
-    }
-
-    async function setupVideos() {
-      for (let src of videoSources) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "bg-white shadow rounded-lg p-4";
-
-        const video = document.createElement("video");
-        video.src = src;
-        video.controls = true;
-        video.autoplay = true;
-        video.loop = true;
-        video.className = "rounded w-full";
-
-        videos.push(video);
-        wrapper.appendChild(video);
-        videosContainer.appendChild(wrapper);
-      }
-    }
-
-    async function init() {
-      if (!canSwitchAudio) {
-        warning.classList.remove("hidden");
-        return;
-      }
-
-      try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
-        console.warn("Microphone permission needed for device labels.");
+        console.error('Error accessing media devices.', err);
+        alert('Permission denied or no devices found.');
       }
-
-      await setupVideos();
-      await setupAudioOutputSelect();
-    }
-
-    init();
+    });
