@@ -1,33 +1,42 @@
-const startBtn = document.getElementById('startBtn');
-    const video = document.getElementById('video');
+    const startBtn = document.getElementById('startBtn');
+    const toggleSpeakerBtn = document.getElementById('toggleSpeakerBtn');
+    const video = document.getElementById('remoteVideo');
+
+    let usingSpeaker = false;
 
     startBtn.addEventListener('click', async () => {
       try {
-        // Get microphone input to simulate a WebRTC call (could also use audio file)
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-
-        // Assign stream to video element (will use speaker on Android)
         video.srcObject = stream;
-
-        // Unmute after user gesture
         video.muted = false;
         await video.play();
 
         startBtn.disabled = true;
-        startBtn.textContent = 'Streaming...';
+        toggleSpeakerBtn.disabled = false;
+        toggleSpeakerBtn.textContent = "Use Speaker";
 
-        // Optionally try to force output device (Android Chrome only)
+        // Optional sinkId logic (Android Chrome only)
         if (typeof video.setSinkId === 'function') {
-          try {
-            await video.setSinkId('speaker'); // or 'speaker' if supported
-            alert('Sink set to speaker');
-            console.log('Sink set to default');
-          } catch (err) {
-            console.warn('Could not set sinkId:', err);
-          }
+          console.log("setSinkId is supported");
+        } else {
+          console.warn("setSinkId is not supported on this device");
         }
-      } catch (err) {
-        console.error('Error accessing media devices.', err);
-        alert('Permission denied or no devices found.');
+      } catch (e) {
+        alert("Media access error: " + e.message);
+      }
+    });
+
+    toggleSpeakerBtn.addEventListener('click', async () => {
+      if (typeof video.setSinkId !== 'function') {
+        alert("Audio output device control not supported on this browser.");
+        return;
+      }
+
+      try {
+        usingSpeaker = !usingSpeaker;
+        await video.setSinkId(usingSpeaker ? 'speaker' : 'default');
+        toggleSpeakerBtn.textContent = usingSpeaker ? "Use Earpiece" : "Use Speaker";
+      } catch (e) {
+        alert("Failed to switch audio output: " + e.message);
       }
     });

@@ -8,9 +8,10 @@
 </head>
 
 <body class="bg-gray-100 text-gray-800 font-sans min-h-screen p-6">
-  <h2>Speaker Output Test (WebRTC)</h2>
-  <p>Click the button and increase the volume. Is it playing through the loudspeaker?</p>
-  <button id="startBtn">Start Stream</button><br><br>
+    <h2>WebRTC Speaker Toggle Test</h2>
+  <button id="startBtn">Start Call</button>
+  <button id="toggleSpeakerBtn" disabled>Toggle Speaker</button><br>
+  <video id="remoteVideo" autoplay playsinline muted></video>
 
   <video id='video' controls="controls" preload='none' width="600" poster="https://assets.codepen.io/32795/poster.png" src="http://media.w3.org/2010/05/sintel/trailer.mp4"></video>
 

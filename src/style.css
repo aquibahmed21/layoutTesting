@@ -1,10 +1,16 @@
     body {
       font-family: sans-serif;
       text-align: center;
-      margin-top: 50px;
+      margin-top: 40px;
     }
     video {
-      width: 80%;
+      width: 90%;
       max-width: 400px;
-      border: 1px solid #ccc;
+      border: 2px solid #ccc;
+      margin-top: 20px;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
     }
