@@ -19,7 +19,8 @@ const startBtn = document.getElementById('startBtn');
         // Optionally try to force output device (Android Chrome only)
         if (typeof video.setSinkId === 'function') {
           try {
-            await video.setSinkId('default'); // or 'speaker' if supported
+            await video.setSinkId('speaker'); // or 'speaker' if supported
+            alert('Sink set to speaker');
             console.log('Sink set to default');
           } catch (err) {
             console.warn('Could not set sinkId:', err);
