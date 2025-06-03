@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Keyboard Resize Test - Parent</title>
+  <title>Layout Testing</title>
   <style>
-    body, html {
+      body, html {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -18,19 +18,12 @@
       transition: height 0.3s ease;
     }
   </style>
+  <script type="module" crossorigin src="/layoutTesting/assets/index-Ca_D1637.js"></script>
 </head>
-<body>
-  <iframe src="layoutTesting/iframe.html" id="testFrame"></iframe>
 
-  <script>
-    window.addEventListener("message", (event) => {
-      const iframe = document.getElementById("testFrame");
-      if (event.data === "keyboardOpen") {
-        iframe.style.height = "60vh";
-      } else if (event.data === "keyboardClose") {
-        iframe.style.height = "100vh";
-      }
-    });
-  </script>
+<body>
+   <iframe src="iframe.html" id="testFrame"></iframe>
+
 </body>
+
 </html>
