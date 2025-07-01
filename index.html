@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Video Recorder</title>
   <style>
@@ -59,6 +58,11 @@
       font-weight: 500;
       text-align: center;
     }
+    .codecs-info {
+      font-size: 0.9rem;
+      color: #666;
+      text-align: center;
+    }
     .hidden { display: none; }
   </style>
 </head>
@@ -78,6 +82,7 @@
     <h2>Recorded Video</h2>
     <video id="recordedVideo" controls></video>
     <p class="message" id="playbackMessage"></p>
+    <p class="codecs-info" id="codecUsedInfo"></p>
   </div>
 
   <script>
@@ -87,6 +92,7 @@
     const recordedVideo = document.getElementById("recordedVideo");
     const message = document.getElementById("message");
     const playbackMessage = document.getElementById("playbackMessage");
+    const codecUsedInfo = document.getElementById("codecUsedInfo");
     const playbackContainer = document.getElementById("playbackContainer");
 
     let mediaRecorder;
@@ -129,7 +135,7 @@
 
         selectedMimeType = getSupportedMimeType();
         if (!selectedMimeType) {
-          message.textContent = "No supported MediaRecorder mimeType found.";
+          message.textContent = "No supported MediaRecorder MIME type found.";
           return;
         }
 
@@ -148,17 +154,18 @@
 
           playbackContainer.classList.remove("hidden");
 
-          // Check if video is playable
           const tempVideo = document.createElement("video");
           const canPlay = tempVideo.canPlayType(selectedMimeType);
+
           if (canPlay === "probably") {
             playbackMessage.textContent = "✅ This recorded video is probably playable on your device.";
           } else if (canPlay === "maybe") {
-            playbackMessage.textContent = "⚠️ This recorded video might be playable, depending on your browser.";
+            playbackMessage.textContent = "⚠️ This recorded video might be playable.";
           } else {
-            playbackMessage.textContent = "❌ This video format is not playable on your current browser.";
+            playbackMessage.textContent = "❌ This video format is not playable in your browser.";
           }
 
+          codecUsedInfo.textContent = `Used MIME Type: ${selectedMimeType}`;
           message.textContent = "Recording complete. Playback is shown below.";
         };
 
