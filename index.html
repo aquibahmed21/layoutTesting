@@ -115,10 +115,10 @@
     }
 
     async function startRecording() {
-      if (isIOS()) {
-        message.textContent = "iOS Safari does not support video recording with MediaRecorder.";
-        return;
-      }
+      // if (isIOS()) {
+      //   message.textContent = "iOS Safari does not support video recording with MediaRecorder.";
+      //   return;
+      // }
 
       recordedBlobs = [];
       message.textContent = "Requesting camera access...";
