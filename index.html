@@ -1,29 +1,192 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <title>Layout Testing</title>
+  <link rel="icon" type="image/svg+xml" href="/layoutTesting/vite.svg">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Video Recorder</title>
   <style>
-      body, html {
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f7fa;
       margin: 0;
-      padding: 0;
-      height: 100%;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
     }
-
-    iframe {
-      border: none;
+    h1 { color: #333; margin-bottom: 0.5rem; }
+    .recorder-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
       width: 100%;
-      height: 100vh;
-      transition: height 0.3s ease;
     }
+    video {
+      width: 100%;
+      border-radius: 8px;
+      background: black;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #007bff;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover { background-color: #0056b3; }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .message {
+      color: #444;
+      font-weight: 500;
+      text-align: center;
+    }
+    .hidden { display: none; }
   </style>
-  <script type="module" crossorigin src="/layoutTesting/assets/index-Ca_D1637.js"></script>
 </head>
-
 <body>
-   <iframe src="https://aquibahmed21.github.io/layoutTesting/iframe.html" id="testFrame"></iframe>
+  <h1>Video Recorder</h1>
 
+  <div class="recorder-container">
+    <video id="preview" autoplay muted playsinline></video>
+    <div class="controls">
+      <button id="startBtn">Start Recording</button>
+      <button id="stopBtn" disabled>Stop Recording</button>
+    </div>
+    <p class="message" id="message">Click start to begin recording.</p>
+  </div>
+
+  <div class="recorder-container hidden" id="playbackContainer">
+    <h2>Recorded Video</h2>
+    <video id="recordedVideo" controls></video>
+    <p class="message" id="playbackMessage"></p>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const preview = document.getElementById("preview");
+    const recordedVideo = document.getElementById("recordedVideo");
+    const message = document.getElementById("message");
+    const playbackMessage = document.getElementById("playbackMessage");
+    const playbackContainer = document.getElementById("playbackContainer");
+
+    let mediaRecorder;
+    let recordedBlobs = [];
+    let selectedMimeType = '';
+
+    const supportedTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+      'video/mp4;codecs="avc1.4D401F,mp4a.40.2"',
+      'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+      'video/mp4;codecs="avc1.640032,mp4a.40.2"'
+    ];
+
+    function getSupportedMimeType() {
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) return type;
+      }
+      return "";
+    }
+
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    async function startRecording() {
+      if (isIOS()) {
+        message.textContent = "iOS Safari does not support video recording with MediaRecorder.";
+        return;
+      }
+
+      recordedBlobs = [];
+      message.textContent = "Requesting camera access...";
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        preview.srcObject = stream;
+
+        selectedMimeType = getSupportedMimeType();
+        if (!selectedMimeType) {
+          message.textContent = "No supported MediaRecorder mimeType found.";
+          return;
+        }
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
+
+        mediaRecorder.ondataavailable = event => {
+          if (event.data && event.data.size > 0) {
+            recordedBlobs.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedBlobs, { type: selectedMimeType });
+          const videoURL = URL.createObjectURL(blob);
+          recordedVideo.src = videoURL;
+
+          playbackContainer.classList.remove("hidden");
+
+          // Check if video is playable
+          const tempVideo = document.createElement("video");
+          const canPlay = tempVideo.canPlayType(selectedMimeType);
+          if (canPlay === "probably") {
+            playbackMessage.textContent = "✅ This recorded video is probably playable on your device.";
+          } else if (canPlay === "maybe") {
+            playbackMessage.textContent = "⚠️ This recorded video might be playable, depending on your browser.";
+          } else {
+            playbackMessage.textContent = "❌ This video format is not playable on your current browser.";
+          }
+
+          message.textContent = "Recording complete. Playback is shown below.";
+        };
+
+        mediaRecorder.start();
+        message.textContent = "Recording...";
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } catch (err) {
+        console.error("Error starting MediaRecorder:", err);
+        message.textContent = "Error accessing media devices.";
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        const tracks = preview.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        message.textContent = "Processing recording...";
+      }
+    }
+
+    startBtn.addEventListener("click", startRecording);
+    stopBtn.addEventListener("click", stopRecording);
+  </script>
 </body>
-
 </html>
