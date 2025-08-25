@@ -2,198 +2,121 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>PDF Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Video Recorder</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: "Segoe UI", sans-serif;
-      background: #f5f7fa;
+    body, html {
       margin: 0;
-      padding: 2rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1.5rem;
-    }
-    h1 { color: #333; margin-bottom: 0.5rem; }
-    .recorder-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-      background: #ffffff;
-      padding: 2rem;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-      max-width: 500px;
+      height: 100%;
       width: 100%;
+      overflow: hidden;
     }
-    video {
+    #viewerContainer {
       width: 100%;
-      border-radius: 8px;
-      background: black;
+      height: 100%;
+      overflow: auto;
+      background: #e4e4e4;
     }
-    .controls {
-      display: flex;
-      gap: 1rem;
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      margin-bottom: 10px;
     }
-    button {
-      padding: 0.6rem 1.2rem;
-      border: none;
-      border-radius: 8px;
-      background-color: #007bff;
+    #toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #222;
       color: white;
-      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      z-index: 1000;
+    }
+    #toolbar button {
+      margin: 0 5px;
+      padding: 6px 10px;
+      border: none;
+      background: #444;
+      color: white;
+      border-radius: 4px;
       cursor: pointer;
-      transition: background 0.3s ease;
     }
-    button:hover { background-color: #0056b3; }
-    button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+    #toolbar button:hover {
+      background: #666;
     }
-    .message {
-      color: #444;
-      font-weight: 500;
-      text-align: center;
+    #viewerContainer {
+      padding-top: 45px; /* toolbar space */
     }
-    .codecs-info {
-      font-size: 0.9rem;
-      color: #666;
-      text-align: center;
-    }
-    .hidden { display: none; }
   </style>
 </head>
 <body>
-  <h1>Video Recorder</h1>
-
-  <div class="recorder-container">
-    <video id="preview" autoplay muted playsinline></video>
-    <div class="controls">
-      <button id="startBtn">Start Recording</button>
-      <button id="stopBtn" disabled>Stop Recording</button>
-    </div>
-    <p class="message" id="message">Click start to begin recording.</p>
+  <div id="toolbar">
+    <button id="prev">◀ Prev</button>
+    <span id="page_num"></span> / <span id="page_count"></span>
+    <button id="next">Next ▶</button>
+  </div>
+  <div id="viewerContainer">
+    <canvas id="pdf-canvas"></canvas>
   </div>
 
-  <div class="recorder-container hidden" id="playbackContainer">
-    <h2>Recorded Video</h2>
-    <video id="recordedVideo" controls></video>
-    <p class="message" id="playbackMessage"></p>
-    <p class="codecs-info" id="codecUsedInfo"></p>
-  </div>
-
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
-    const startBtn = document.getElementById("startBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const preview = document.getElementById("preview");
-    const recordedVideo = document.getElementById("recordedVideo");
-    const message = document.getElementById("message");
-    const playbackMessage = document.getElementById("playbackMessage");
-    const codecUsedInfo = document.getElementById("codecUsedInfo");
-    const playbackContainer = document.getElementById("playbackContainer");
+    // PDF.js setup
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-    let mediaRecorder;
-    let recordedBlobs = [];
-    let selectedMimeType = '';
+    // Change this to your server PDF URL
+    const url = "https://saarathy.in:2000/files/f8b4f777271ba544a545f26d07ab1d9287978e510384108f85d4dedfb2801a17_272494";
 
-    const supportedTypes = [
-      'video/webm;codecs=vp9',
-      'video/webm;codecs=vp8',
-      'video/webm',
-      'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
-      'video/mp4;codecs="avc1.4D401F,mp4a.40.2"',
-      'video/mp4;codecs="avc1.640028,mp4a.40.2"',
-      'video/mp4;codecs="avc1.640032,mp4a.40.2"'
-    ];
+    let pdfDoc = null,
+        pageNum = 1,
+        scale = 1.2, // zoom level
+        canvas = document.getElementById("pdf-canvas"),
+        ctx = canvas.getContext("2d");
 
-    function getSupportedMimeType() {
-      for (const type of supportedTypes) {
-        if (MediaRecorder.isTypeSupported(type)) return type;
-      }
-      return "";
-    }
+    function renderPage(num) {
+      pdfDoc.getPage(num).then(function(page) {
+        let viewport = page.getViewport({ scale });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-    function isIOS() {
-      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
-
-    async function startRecording() {
-      // if (isIOS()) {
-      //   message.textContent = "iOS Safari does not support video recording with MediaRecorder.";
-      //   return;
-      // }
-
-      recordedBlobs = [];
-      message.textContent = "Requesting camera access...";
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        preview.srcObject = stream;
-
-        selectedMimeType = getSupportedMimeType();
-        if (!selectedMimeType) {
-          message.textContent = "No supported MediaRecorder MIME type found.";
-          return;
-        }
-
-        mediaRecorder = new MediaRecorder(stream, { mimeType: selectedMimeType });
-
-        mediaRecorder.ondataavailable = event => {
-          if (event.data && event.data.size > 0) {
-            recordedBlobs.push(event.data);
-          }
+        let renderContext = {
+          canvasContext: ctx,
+          viewport: viewport
         };
+        page.render(renderContext);
+        document.getElementById("page_num").textContent = num;
+      });
+    }
 
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(recordedBlobs, { type: selectedMimeType });
-          const videoURL = URL.createObjectURL(blob);
-          recordedVideo.src = videoURL;
-
-          playbackContainer.classList.remove("hidden");
-
-          const tempVideo = document.createElement("video");
-          const canPlay = tempVideo.canPlayType(selectedMimeType);
-
-          if (canPlay === "probably") {
-            playbackMessage.textContent = "✅ This recorded video is probably playable on your device.";
-          } else if (canPlay === "maybe") {
-            playbackMessage.textContent = "⚠️ This recorded video might be playable.";
-          } else {
-            playbackMessage.textContent = "❌ This video format is not playable in your browser.";
-          }
-
-          codecUsedInfo.textContent = `Used MIME Type: ${selectedMimeType}`;
-          message.textContent = "Recording complete. Playback is shown below.";
-        };
-
-        mediaRecorder.start();
-        message.textContent = "Recording...";
-
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
-      } catch (err) {
-        console.error("Error starting MediaRecorder:", err);
-        message.textContent = "Error accessing media devices.";
+    function queueRenderPage(num) {
+      if (num >= 1 && num <= pdfDoc.numPages) {
+        pageNum = num;
+        renderPage(num);
       }
     }
 
-    function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
-        const tracks = preview.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
+    document.getElementById("prev").addEventListener("click", () => {
+      if (pageNum <= 1) return;
+      queueRenderPage(pageNum - 1);
+    });
 
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        message.textContent = "Processing recording...";
-      }
-    }
+    document.getElementById("next").addEventListener("click", () => {
+      if (pageNum >= pdfDoc.numPages) return;
+      queueRenderPage(pageNum + 1);
+    });
 
-    startBtn.addEventListener("click", startRecording);
-    stopBtn.addEventListener("click", stopRecording);
+    // Load PDF
+    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+      pdfDoc = pdfDoc_;
+      document.getElementById("page_count").textContent = pdfDoc.numPages;
+      renderPage(pageNum);
+    });
   </script>
 </body>
 </html>
