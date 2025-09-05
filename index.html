@@ -1,275 +1,734 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>WebRTC Group Video Call (Scaledrone)</title>
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ScaleDrone WebRTC Multi-party Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f0f2f4; margin: 0; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 20px; }
-    h2 { margin-top: 0; text-align: center; }
-    #buttons { text-align: center; margin-bottom: 10px; }
-    button { margin: 6px 12px; padding: 10px 20px; font-size: 1rem; }
-    #status { text-align: center; margin: 10px 0; font-weight: 600; color: #333; }
-    #members { margin: 10px 0; }
-    #videos {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: center;
+    :root {
+      --bg: #0f1724;
+      --muted: #94a3b8;
+      --card: #0b1220;
+      --accent: #0ea5a4;
+      --glass: rgba(255, 255, 255, 0.03);
+      --gap: 12px;
     }
-    video {
-      border-radius: 8px;
-      background: #000;
-      max-width: 280px;
-      width: 100%;
-      height: auto;
-      box-shadow: 0 0 6px rgba(0,0,0,0.15);
+
+    * {
+      box-sizing: border-box
     }
-    .video-block {
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, var(--bg), #071022);
+      color: #e6eef6;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      gap: 18px;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
       align-items: center;
     }
-    .video-label {
-      margin-top: 6px;
-      font-size: 0.9rem;
-      color: #333;
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #06b6d4, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      box-shadow: 0 6px 18px rgba(12, 18, 30, 0.5);
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0
+    }
+
+    p.lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      background: var(--glass);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      color: inherit;
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .08s;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    button:active {
+      transform: translateY(1px)
+    }
+
+    button.primary {
+      background: linear-gradient(90deg, #06b6d4, #7c3aed);
+      border: none;
+      color: #021018;
+      box-shadow: 0 6px 20px rgba(12, 18, 30, 0.5);
+    }
+
+    button.ghost {
+      background: transparent;
+      border: 1px dashed rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    main {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      box-shadow: 0 6px 16px rgba(2, 6, 23, 0.6);
+    }
+
+    .left {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .right {
+      width: 360px;
+      max-height: 75vh;
+      overflow: auto;
+    }
+
+    /* Grid of videos */
+    .video-grid {
+      display: grid;
+      gap: var(--gap);
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      align-items: start;
+    }
+
+    .video-card {
+      position: relative;
+      background: #071223;
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      background: linear-gradient(90deg, #071223, #021018);
+    }
+
+    .overlay {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #e6eef6;
+      backdrop-filter: blur(6px);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .overlay .id {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .overlay .label {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .controls-under {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    .log {
+      font-family: monospace;
+      font-size: 12px;
+      color: var(--muted);
+      max-height: 160px;
+      overflow: auto;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: 8px;
+    }
+
+    footer {
+      margin-top: auto;
+      color: var(--muted);
+      font-size: 13px;
       text-align: center;
-      max-width: 280px;
-      word-break: break-word;
+    }
+
+    @media (max-width:900px) {
+      main {
+        flex-direction: column
+      }
+
+      .right {
+        width: 100%
+      }
     }
   </style>
 </head>
+
 <body>
-  <div class="container">
-    <h2>WebRTC Group Video Call (Scaledrone)</h2>
-    <div id="buttons">
-      <button id="startCallBtn">Start Call</button>
-      <button id="joinCallBtn">Join Call</button>
-    </div>
-    <div id="status"></div>
-    <div id="members"></div>
-    <div id="videos">
-      <div class="video-block">
-        <video id="localVideo" autoplay muted playsinline></video>
-        <div class="video-label">You (Muted locally)</div>
+  <header>
+    <div class="brand">
+      <div class="logo">VC</div>
+      <div>
+        <h1>ScaleDrone WebRTC — Multi-party Demo</h1>
+        <p class="lead">Small-group video calling (mesh). Replace the ScaleDrone channel ID in the script.</p>
       </div>
-      <!-- Remote videos appended here -->
     </div>
-  </div>
+    <div class="controls">
+      <button id="startCallBtn" class="primary">Start Call</button>
+      <button id="joinBtn" class="ghost">Join Call</button>
+      <button id="leaveBtn">Hang Up</button>
+    </div>
+  </header> 
 
+  <main>
+    <section class="panel left">
+      <div class="video-grid" id="videoGrid">
+        <!-- Dynamic video cards -->
+      </div>
+      <div class="status" id="callStatus">Not in a call</div>
+    </section>
+
+    <aside class="panel right">
+      <h3 style="margin-top:0">Session Info</h3>
+      <div class="small">Your client ID: <span id="clientIdDisplay">—</span></div>
+      <div class="small" style="margin-top:6px">Room: <strong>#webrtc-demo</strong></div>
+      <div style="margin-top:12px" class="small">Logs</div>
+      <div id="log" class="log"></div>
+      <div style="margin-top:12px" class="small">Notes</div>
+      <ul style="margin:8px 0 0 18px;color:var(--muted);font-size:13px">
+        <li>Mesh topology — best for small groups.</li>
+        <li>Use a TURN server for best connectivity across NATs (not included here).</li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer>Built with native WebRTC + ScaleDrone</footer>
+
+    <!-- ScaleDrone client library -->
   <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
+
   <script>
-    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // Replace with your Scaledrone channel ID
-    const ROOM_NAME = 'observable-voip-group-room';
+    /*
+      Replace with your ScaleDrone channel ID:
+      - Sign up at https://www.scaledrone.com and create a channel
+      - Use the Channel ID string here.
+    */
+    const SCALEDRONE_CHANNEL_ID = 'EoIG3R1I4JdyS4L1';
+    if (!SCALEDRONE_CHANNEL_ID || SCALEDRONE_CHANNEL_ID.includes('REPLACE')) {
+      console.warn('Please replace SCALEDRONE_CHANNEL_ID with your actual channel id.');
+    }
 
-    let drone = null, room = null, localStream = null;
-    let members = [];
-    const peerConnections = {};
-    const videoElements = {};
-    const iceCandidateQueues = {};
-
+    /* ----- UI elements ----- */
     const startCallBtn = document.getElementById('startCallBtn');
-    const joinCallBtn = document.getElementById('joinCallBtn');
-    const statusEl = document.getElementById('status');
-    const membersEl = document.getElementById('members');
-    const videosEl = document.getElementById('videos');
-    const localVideo = document.getElementById('localVideo');
+    const joinBtn = document.getElementById('joinBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const videoGrid = document.getElementById('videoGrid');
+    const clientIdDisplay = document.getElementById('clientIdDisplay');
+    const callStatus = document.getElementById('callStatus');
+    const logEl = document.getElementById('log');
 
-    function logStatus(msg) { statusEl.textContent = msg; }
-
-    function showMembersWithStatus() {
-      membersEl.innerHTML = "<strong>Room members:</strong><br>";
-      members.forEach(m => {
-        const div = document.createElement('div');
-        div.textContent = m.id + (m.id === drone.clientId ? " (You)" : "");
-        if (m.id === drone.clientId) div.style.fontWeight = "bold";
-        if (peerConnections[m.id]) {
-          div.style.color = 'green';
-          div.textContent += " 🌐 Connected";
-        }
-        membersEl.appendChild(div);
-      });
+    function log(...args) {
+      const line = '[' + new Date().toLocaleTimeString() + '] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+      logEl.innerText = line + '\n' + logEl.innerText;
+      console.debug(...args);
     }
 
-    drone = new ScaleDrone(CHANNEL_ID);
-    drone.on('open', error => {
-      if (error) { logStatus("Scaledrone connection failed."); return; }
-      logStatus("Connected to Scaledrone.");
-      room = drone.subscribe(ROOM_NAME);
+    /* ----- WebRTC / Signaling state ----- */
+    let drone = null;
+    let room = null;
+    let clientId = null;
+    let members = []; // presence list from ScaleDrone 'members' event
+    let localStream = null;
+    let inCall = false;
+    let isInitiator = false;
 
-      room.on('open', err => {
-        if (err) { logStatus("Room join error."); }
-      });
+    /* Map of remoteClientId -> RTCPeerConnection object and video element */
+    const peers = new Map();
 
-      room.on('members', ms => {
-        members = ms;
-        showMembersWithStatus();
-      });
+    /* STUN servers (public). For production add TURN servers. */
+    const RTC_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
 
-      room.on('member_join', member => {
-        members.push(member);
-        showMembersWithStatus();
-      });
+    /* Room name (observable room to allow members list). */
+    const ROOM_NAME = 'observable-webrtc-demo-v1'; // change if desired
 
-      room.on('member_leave', member => {
-        members = members.filter(m => m.id !== member.id);
-        if (peerConnections[member.id]) {
-          peerConnections[member.id].close();
-          delete peerConnections[member.id];
-        }
-        if (videoElements[member.id]) {
-          videoElements[member.id].remove();
-          delete videoElements[member.id];
-        }
-        showMembersWithStatus();
-      });
+    /* ----- Helpers: create video cards ----- */
+    function createVideoElementFor(id, isLocal = false) {
+      // If already exists, return
+      if (document.getElementById('video-' + id)) return document.getElementById('video-' + id);
 
-      room.on('data', (data, client) => {
-        if (!client || client.id === drone.clientId) return;
-        handleSignalingData(data, client.id);
-      });
-    });
+      const card = document.createElement('div');
+      card.className = 'video-card';
+      card.id = 'card-' + id;
 
-    function sendSignal(targetId, body) {
-      drone.publish({
-        room: ROOM_NAME,
-        message: {
-          to: targetId,
-          from: drone.clientId,
-          data: body
-        }
-      });
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay';
+      overlay.innerHTML = `<div class="id">${id}</div><div class="label">${isLocal ? 'You' : 'Peer'}</div>`;
+      card.appendChild(overlay);
+
+      const vid = document.createElement('video');
+      vid.autoplay = true;
+      vid.playsInline = true;
+      vid.id = 'video-' + id;
+      if (isLocal) {
+        vid.muted = true; // avoid echo
+      }
+      card.appendChild(vid);
+
+      // optional controls: mute/unmute local audio
+      if (isLocal) {
+        const controls = document.createElement('div');
+        controls.className = 'controls-under';
+        const muteBtn = document.createElement('button');
+        muteBtn.textContent = 'Mute';
+        muteBtn.onclick = () => {
+          if (!localStream) return;
+          const audioTrack = localStream.getAudioTracks()[0];
+          if (!audioTrack) return;
+          audioTrack.enabled = !audioTrack.enabled;
+          muteBtn.textContent = audioTrack.enabled ? 'Mute' : 'Unmute';
+        };
+        controls.appendChild(muteBtn);
+        card.appendChild(controls);
+      }
+
+      videoGrid.appendChild(card);
+      return vid;
     }
 
-    startCallBtn.onclick = async function () {
-      if (!localStream) {
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          localVideo.srcObject = localStream;
-          members.forEach(m => {
-            if (m.id !== drone.clientId) createPeerConnection(m.id, true);
-          });
-          showMembersWithStatus();
-          logStatus("Start Call: local media acquired and connections initiated.");
-        } catch(e) {
-          logStatus("Could not access camera/microphone.");
+    function removeVideoFor(id) {
+      const card = document.getElementById('card-' + id);
+      if (card && card.parentNode) card.parentNode.removeChild(card);
+    }
+
+    /* ----- Peer connection creation & signaling ----- */
+    function createPeerConnection(remoteId, makeOffer = false) {
+      if (peers.has(remoteId)) {
+        log('Peer already exists for', remoteId);
+        return;
+      }
+      log('Creating peer connection to', remoteId);
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+
+      // attach local tracks
+      if (localStream) {
+        for (const track of localStream.getTracks()) {
+          pc.addTrack(track, localStream);
+        }
+      }
+
+      // ontrack -> show remote video
+      const remoteVid = createVideoElementFor(remoteId, false);
+      pc.ontrack = (event) => {
+        // event.streams[0] may be undefined until tracks arrive; use setStream once available
+        if (event.streams && event.streams[0]) {
+          remoteVid.srcObject = event.streams[0];
+        } else {
+          // fallback: create a MediaStream from event.track(s)
+          const ms = new MediaStream();
+          ms.addTrack(event.track);
+          remoteVid.srcObject = ms;
+        }
+      };
+
+      // ICE candidates: send to remote via ScaleDrone
+      pc.onicecandidate = (evt) => {
+        if (!evt.candidate) return;
+        const message = {
+          type: 'candidate',
+          from: clientId,
+          to: remoteId,
+          candidate: evt.candidate
+        };
+        sendMessage(message);
+      };
+
+      pc.onconnectionstatechange = () => {
+        log('Connection state for', remoteId, pc.connectionState);
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+          // cleanup
+          if (peers.has(remoteId)) {
+            peers.get(remoteId).pc.close();
+            peers.delete(remoteId);
+          }
+          removeVideoFor(remoteId);
+        }
+      };
+
+      peers.set(remoteId, { pc, remoteVid });
+
+      // If we're asked to make an offer (this happens on existing participants joining a new client OR when a new client decides to create offers)
+      if (makeOffer) {
+        pc.createOffer().then(offer => {
+          return pc.setLocalDescription(offer);
+        }).then(() => {
+          const message = {
+            type: 'offer',
+            from: clientId,
+            to: remoteId,
+            sdp: pc.localDescription
+          };
+          sendMessage(message);
+        }).catch(err => {
+          log('Error creating offer to', remoteId, err);
+        });
+      }
+    }
+
+    /* ----- Signaling message send (ScaleDrone publish) ----- */
+    function sendMessage(message) {
+      if (!drone) {
+        log('No drone: cannot send message', message);
+        return;
+      }
+      try {
+        drone.publish({
+          room: ROOM_NAME,
+          message
+        });
+      } catch (e) {
+        log('Publish error', e);
+      }
+    }
+
+    /* ----- Handlers for incoming signaling messages ----- */
+    function handleSignalingMessage(message) {
+      if (!message || !message.type) return;
+      const { type, from, to } = message;
+
+      // ignore messages from self
+      if (from === clientId) return;
+
+      // types that everyone handles
+      if (type === 'callStarted') {
+        log('Received callStarted from', from);
+        // show join button if not in call
+        if (!inCall) {
+          joinBtn.style.display = 'inline-block';
+          callStatus.innerText = 'Call started — click Join to participate';
+        }
+        return;
+      }
+      if (type === 'join') {
+        log('Participant joined announced:', from);
+        // If we are in call (we already joined or are initiator), create a peer and make an offer to the joiner
+        if (inCall) {
+          // create pc and make offer
+          createPeerConnection(from, true);
+        }
+        return;
+      }
+      if (type === 'hangup') {
+        log('Hangup announced by', from);
+        // close peer connection to that user if exists
+        if (peers.has(from)) {
+          const { pc } = peers.get(from);
+          try { pc.close(); } catch (e) { }
+          peers.delete(from);
+        }
+        removeVideoFor(from);
+        return;
+      }
+
+      // For offer/answer/candidate messages, check 'to' field matches us.
+      if (to && to !== clientId) return;
+
+      if (type === 'offer') {
+        // incoming offer: create pc (if not exists), set remote, create answer
+        log('Received offer from', from);
+        if (!peers.has(from)) {
+          createPeerConnection(from, false);
+        }
+        const { pc } = peers.get(from);
+        const sdp = message.sdp;
+        pc.setRemoteDescription(new RTCSessionDescription(sdp)).then(() => {
+          return pc.createAnswer();
+        }).then(answer => {
+          return pc.setLocalDescription(answer);
+        }).then(() => {
+          const resp = {
+            type: 'answer',
+            from: clientId,
+            to: from,
+            sdp: pc.localDescription
+          };
+          sendMessage(resp);
+        }).catch(err => {
+          log('Error handling offer', err);
+        });
+        return;
+      }
+
+      if (type === 'answer') {
+        log('Received answer from', from);
+        if (!peers.has(from)) {
+          log('No peer for answer from', from);
           return;
         }
-      }
-      members.forEach(m => {
-        if (m.id !== drone.clientId) sendSignal(m.id, { type: 'JOIN_CALL' });
-      });
-      logStatus("Start Call: invited others to join.");
-    };
-
-    joinCallBtn.onclick = async function () {
-      if (localStream) return;
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        localVideo.srcObject = localStream;
-        members.forEach(m => {
-          if (m.id !== drone.clientId) createPeerConnection(m.id, true);
+        const { pc } = peers.get(from);
+        pc.setRemoteDescription(new RTCSessionDescription(message.sdp)).catch(err => {
+          log('setRemoteDescription(answer) error', err);
         });
-        showMembersWithStatus();
-        logStatus("Joined call. Connecting...");
-      } catch (e) {
-        logStatus("Could not access camera/microphone.");
+        return;
       }
+
+      if (type === 'candidate') {
+        if (!peers.has(from)) {
+          // sometimes candidate arrives before PC created; create PC skeleton
+          createPeerConnection(from, false);
+        }
+        const { pc } = peers.get(from);
+        const candidate = new RTCIceCandidate(message.candidate);
+        pc.addIceCandidate(candidate).catch(err => {
+          log('addIceCandidate error', err);
+        });
+        return;
+      }
+    }
+
+    /* ----- Get local media ----- */
+    async function getLocalMedia() {
+      if (localStream) return localStream;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream = stream;
+        const localVid = createVideoElementFor(clientId, true);
+        localVid.srcObject = stream;
+        return stream;
+      } catch (err) {
+        log('getUserMedia failed', err);
+        throw err;
+      }
+    }
+
+    /* ----- Join call flow ----- */
+    async function joinCall() {
+      if (inCall) return;
+      try {
+        await getLocalMedia();
+      } catch (e) {
+        alert('Cannot access camera/microphone. Check permissions.');
+        return;
+      }
+
+      // mark as inCall
+      inCall = true;
+      joinBtn.style.display = 'none';
+      leaveBtn.style.display = 'inline-block';
+      callStatus.innerText = 'In call — connected to peers';
+      log('Joining call: announcing to room');
+      // announce join to room (existing participants will make offers to us)
+      sendMessage({ type: 'join', from: clientId });
+    }
+
+    /* ----- Start call as initiator ----- */
+    function startCall() {
+      isInitiator = true;
+      inCall = true;
+      startCallBtn.disabled = true;
+      startCallBtn.textContent = 'Call started';
+      joinBtn.style.display = 'none';
+      leaveBtn.style.display = 'inline-block';
+      callStatus.innerText = 'Call started by you — waiting for participants';
+      // get local media early
+      getLocalMedia().catch(e => log('getLocalMedia error', e));
+      // broadcast callStarted so everyone sees a join button
+      sendMessage({ type: 'callStarted', from: clientId });
+      log('You started the call');
+    }
+
+    /* ----- Hangup / leave ----- */
+    function hangup() {
+      if (!inCall) return;
+      // close all peer connections
+      for (const [rid, info] of peers.entries()) {
+        try { info.pc.close(); } catch (e) { }
+        removeVideoFor(rid);
+      }
+      peers.clear();
+
+      // stop local tracks
+      if (localStream) {
+        for (const t of localStream.getTracks()) t.stop();
+        localStream = null;
+      }
+      // remove local video
+      removeVideoFor(clientId);
+
+      // notify others
+      sendMessage({ type: 'hangup', from: clientId });
+
+      // reset UI
+      inCall = false;
+      isInitiator = false;
+      startCallBtn.disabled = false;
+      startCallBtn.textContent = 'Start Call';
+      joinBtn.style.display = 'none';
+      leaveBtn.style.display = 'none';
+      callStatus.innerText = 'Not in a call';
+      log('You left the call');
+    }
+
+    /* ----- ScaleDrone connection setup ----- */
+    function setupScaleDrone() {
+      if (!SCALEDRONE_CHANNEL_ID || SCALEDRONE_CHANNEL_ID.includes('REPLACE')) {
+        log('ScaleDrone channel id not set. Please replace in source.');
+        return;
+      }
+      drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
+
+      drone.on('open', error => {
+        if (error) {
+          log('Drone open error', error);
+          return;
+        }
+        clientId = drone.clientId;
+        clientIdDisplay.innerText = clientId;
+        log('Connected to ScaleDrone. Client ID', clientId);
+
+        // subscribe to presence-enabled room (observable- prefix)
+        room = drone.subscribe(ROOM_NAME);
+
+        room.on('open', err => {
+          if (err) log('Room open error', err);
+          else log('Subscribed to room', ROOM_NAME);
+        });
+
+        // members list (presence)
+        room.on('members', m => {
+          members = m;
+          log('Members event', members.map(x => x.id));
+          // If the initiator started and we're not in call, show join button? callStarted messages are the controlled mechanism.
+        });
+
+        // data messages
+        room.on('data', (message, member) => {
+          // message may be an object we sent
+          try {
+            handleSignalingMessage(message);
+          } catch (e) {
+            log('Error processing incoming message', e);
+          }
+        });
+
+      });
+
+      drone.on('error', err => {
+        log('Drone error', err);
+      });
+
+      drone.on('close', () => {
+        log('Drone connection closed');
+      });
+    }
+
+    /* ----- UI wiring ----- */
+    startCallBtn.onclick = () => {
+      if (!clientId) {
+        alert('Not connected to ScaleDrone yet.');
+        return;
+      }
+      startCall();
     };
 
-    function createPeerConnection(peerId, isInitiator) {
-      if (peerConnections[peerId]) return peerConnections[peerId];
+    joinBtn.onclick = () => {
+      joinCall();
+    };
 
-      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      peerConnections[peerId] = pc;
-      iceCandidateQueues[peerId] = [];
-      showMembersWithStatus();
+    leaveBtn.onclick = () => {
+      hangup();
+    };
 
-      if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-      }
+    /* Initialize */
+    setupScaleDrone();
 
-      pc.onicecandidate = event => {
-        if (event.candidate) sendSignal(peerId, { type: 'ICE', candidate: event.candidate });
-      };
+    /* Clean up on unload */
+    window.addEventListener('beforeunload', () => {
+      try { hangup(); } catch (e) { }
+      if (drone) drone.close();
+    });
 
-      pc.ontrack = event => {
-        if (!videoElements[peerId]) {
-          const video = document.createElement('video');
-          video.id = 'remote-video-' + peerId;
-          video.autoplay = true;
-          video.playsInline = true;
-          video.controls = true;
-          video.style.maxWidth = "280px";
-          video.style.borderRadius = "8px";
-          const block = document.createElement('div');
-          block.className = 'video-block';
-          const label = document.createElement('div');
-          label.className = 'video-label';
-          label.textContent = 'Remote: ' + peerId;
-          block.appendChild(video);
-          block.appendChild(label);
-          videosEl.appendChild(block);
-          videoElements[peerId] = block;
-        }
-        videoElements[peerId].querySelector('video').srcObject = event.streams[0];
-      };
-
-      if (isInitiator) {
-        pc.createOffer()
-          .then(offer => pc.setLocalDescription(offer))
-          .then(() => sendSignal(peerId, { type: 'OFFER', sdp: pc.localDescription }));
-      }
-
-      return pc;
-    }
-
-    async function handleSignalingData(message, fromId) {
-      const { type, sdp, candidate } = message.data || message;
-      if (message.to && message.to !== drone.clientId) return;
-
-      switch (type) {
-        case 'JOIN_CALL':
-          if (localStream) createPeerConnection(fromId, false);
-          break;
-        case 'OFFER': {
-          const pc = peerConnections[fromId] || createPeerConnection(fromId, false);
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-          for (let c of iceCandidateQueues[fromId]) {
-            await pc.addIceCandidate(c);
-          }
-          iceCandidateQueues[fromId] = [];
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          sendSignal(fromId, { type: 'ANSWER', sdp: pc.localDescription });
-          break;
-        }
-        case 'ANSWER': {
-          const pc = peerConnections[fromId];
-          if (!pc) return;
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-          for (let c of iceCandidateQueues[fromId]) {
-            await pc.addIceCandidate(c);
-          }
-          iceCandidateQueues[fromId] = [];
-          break;
-        }
-        case 'ICE': {
-          const pc = peerConnections[fromId];
-          if (!pc) return;
-          const iceCandidate = new RTCIceCandidate(candidate);
-          if (pc.remoteDescription && pc.remoteDescription.type) {
-            await pc.addIceCandidate(iceCandidate);
-          } else {
-            iceCandidateQueues[fromId].push(iceCandidate);
-          }
-          break;
-        }
-      }
-      showMembersWithStatus();
-    }
+    /* Expose sendMessage helper for debugging in console */
+    window._webrtc = {
+      sendMessage,
+      peers,
+      getLocalMedia,
+      hangup
+    };
   </script>
+
+
 </body>
+
 </html>
