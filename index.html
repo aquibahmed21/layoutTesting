@@ -2,52 +2,80 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WebRTC Group VOIP Call (Scaledrone)</title>
+  <title>WebRTC Group Video Call (Scaledrone)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; background: #f0f2f4; }
-    .container { max-width: 640px; margin: 48px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 28px;}
-    h2 { margin-top: 0; }
-    #status { display: block; margin: 10px 0 20px 0; font-size: 1em; }
-    button { margin: 7px 12px 7px 0; padding: 10px 18px; font-size: 1em;}
-    #members, .audio-list { margin-top: 20px; }
-    .audio-block { margin-bottom: 16px; }
-    .audio-label { font-size: .92em; color: #444; margin-bottom: 3px; display: block; }
-    .connected { color: #0a0; font-weight: 600; }
+    body { font-family: Arial, sans-serif; background: #f0f2f4; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 20px; }
+    h2 { margin-top: 0; text-align: center; }
+    #buttons { text-align: center; margin-bottom: 10px; }
+    button { margin: 6px 12px; padding: 10px 20px; font-size: 1rem; }
+    #status { text-align: center; margin: 10px 0; font-weight: 600; color: #333; }
+    #members { margin: 10px 0; }
+    #videos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+    video {
+      border-radius: 8px;
+      background: #000;
+      max-width: 280px;
+      width: 100%;
+      height: auto;
+      box-shadow: 0 0 6px rgba(0,0,0,0.15);
+    }
+    .video-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .video-label {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: #333;
+      text-align: center;
+      max-width: 280px;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>WebRTC Group VoIP Call (Scaledrone)</h2>
-    <button id="startCallBtn">Start Call</button>
-    <button id="joinCallBtn">Join Call</button>
-    <span id="status"></span>
+    <h2>WebRTC Group Video Call (Scaledrone)</h2>
+    <div id="buttons">
+      <button id="startCallBtn">Start Call</button>
+      <button id="joinCallBtn">Join Call</button>
+    </div>
+    <div id="status"></div>
     <div id="members"></div>
-    <div class="audio-list" id="audioList">
-      <div class="audio-block">
-        <span class="audio-label">Your audio (muted locally)</span>
-        <audio id="localAudio" autoplay muted></audio>
+    <div id="videos">
+      <div class="video-block">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="video-label">You (Muted locally)</div>
       </div>
-      <!-- Remote audios appended dynamically -->
+      <!-- Remote videos appended here -->
     </div>
   </div>
+
   <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
   <script>
-    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // Replace this!
+    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // Replace with your Scaledrone channel ID
     const ROOM_NAME = 'observable-voip-group-room';
 
     let drone = null, room = null, localStream = null;
     let members = [];
     const peerConnections = {};
-    const audioElements = {};
-    const iceCandidateQueues = {}; // New: queues per peer for ICE candidates received early
+    const videoElements = {};
+    const iceCandidateQueues = {};
 
     const startCallBtn = document.getElementById('startCallBtn');
     const joinCallBtn = document.getElementById('joinCallBtn');
     const statusEl = document.getElementById('status');
-    const audioList = document.getElementById('audioList');
     const membersEl = document.getElementById('members');
-    const localAudio = document.getElementById('localAudio');
+    const videosEl = document.getElementById('videos');
+    const localVideo = document.getElementById('localVideo');
 
     function logStatus(msg) { statusEl.textContent = msg; }
 
@@ -58,7 +86,7 @@
         div.textContent = m.id + (m.id === drone.clientId ? " (You)" : "");
         if (m.id === drone.clientId) div.style.fontWeight = "bold";
         if (peerConnections[m.id]) {
-          div.className = "connected";
+          div.style.color = 'green';
           div.textContent += " 🌐 Connected";
         }
         membersEl.appendChild(div);
@@ -91,9 +119,9 @@
           peerConnections[member.id].close();
           delete peerConnections[member.id];
         }
-        if (audioElements[member.id]) {
-          audioElements[member.id].remove();
-          delete audioElements[member.id];
+        if (videoElements[member.id]) {
+          videoElements[member.id].remove();
+          delete videoElements[member.id];
         }
         showMembersWithStatus();
       });
@@ -115,34 +143,49 @@
       });
     }
 
-    startCallBtn.onclick = function () {
+    startCallBtn.onclick = async function () {
+      if (!localStream) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          localVideo.srcObject = localStream;
+          members.forEach(m => {
+            if (m.id !== drone.clientId) createPeerConnection(m.id, true);
+          });
+          showMembersWithStatus();
+          logStatus("Start Call: local media acquired and connections initiated.");
+        } catch(e) {
+          logStatus("Could not access camera/microphone.");
+          return;
+        }
+      }
       members.forEach(m => {
         if (m.id !== drone.clientId) sendSignal(m.id, { type: 'JOIN_CALL' });
       });
       logStatus("Start Call: invited others to join.");
     };
 
-    joinCallBtn.onclick = async function() {
+    joinCallBtn.onclick = async function () {
       if (localStream) return;
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
-        localAudio.srcObject = localStream;
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        localVideo.srcObject = localStream;
         members.forEach(m => {
           if (m.id !== drone.clientId) createPeerConnection(m.id, true);
         });
         showMembersWithStatus();
         logStatus("Joined call. Connecting...");
       } catch (e) {
-        logStatus("Could not access microphone.");
+        logStatus("Could not access camera/microphone.");
       }
     };
 
     function createPeerConnection(peerId, isInitiator) {
       if (peerConnections[peerId]) return peerConnections[peerId];
 
-      const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
       peerConnections[peerId] = pc;
       iceCandidateQueues[peerId] = [];
+      showMembersWithStatus();
 
       if (localStream) {
         localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -153,24 +196,25 @@
       };
 
       pc.ontrack = event => {
-        let el = audioElements[peerId];
-        if (!el) {
-          el = document.createElement('audio');
-          el.id = 'remote-audio-' + peerId;
-          el.autoplay = true;
-          el.controls = true;
-          el.muted = false;
-          let label = document.createElement('span');
-          label.className = "audio-label";
-          label.textContent = "Remote audio: " + peerId;
-          let block = document.createElement('div');
-          block.className = "audio-block";
+        if (!videoElements[peerId]) {
+          const video = document.createElement('video');
+          video.id = 'remote-video-' + peerId;
+          video.autoplay = true;
+          video.playsInline = true;
+          video.controls = true;
+          video.style.maxWidth = "280px";
+          video.style.borderRadius = "8px";
+          const block = document.createElement('div');
+          block.className = 'video-block';
+          const label = document.createElement('div');
+          label.className = 'video-label';
+          label.textContent = 'Remote: ' + peerId;
+          block.appendChild(video);
           block.appendChild(label);
-          block.appendChild(el);
-          audioList.appendChild(block);
-          audioElements[peerId] = el;
+          videosEl.appendChild(block);
+          videoElements[peerId] = block;
         }
-        el.srcObject = event.streams[0];
+        videoElements[peerId].querySelector('video').srcObject = event.streams[0];
       };
 
       if (isInitiator) {
@@ -178,6 +222,7 @@
           .then(offer => pc.setLocalDescription(offer))
           .then(() => sendSignal(peerId, { type: 'OFFER', sdp: pc.localDescription }));
       }
+
       return pc;
     }
 
@@ -192,7 +237,6 @@
         case 'OFFER': {
           const pc = peerConnections[fromId] || createPeerConnection(fromId, false);
           await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-          // Add any queued ICE candidates now
           for (let c of iceCandidateQueues[fromId]) {
             await pc.addIceCandidate(c);
           }
@@ -206,7 +250,6 @@
           const pc = peerConnections[fromId];
           if (!pc) return;
           await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-          // Add any queued ICE candidates now
           for (let c of iceCandidateQueues[fromId]) {
             await pc.addIceCandidate(c);
           }
@@ -220,7 +263,6 @@
           if (pc.remoteDescription && pc.remoteDescription.type) {
             await pc.addIceCandidate(iceCandidate);
           } else {
-            // Queue candidate if remoteDescription not set
             iceCandidateQueues[fromId].push(iceCandidate);
           }
           break;
