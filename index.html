@@ -1,122 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>PDF Viewer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <title>WebRTC Group Voice Call with Scaledrone</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body, html {
-      margin: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-    }
-    #viewerContainer {
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      background: #e4e4e4;
-    }
-    canvas {
-      display: block;
-      margin: 0 auto;
-      background: white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      margin-bottom: 10px;
-    }
-    #toolbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: #222;
-      color: white;
-      display: flex;
-      align-items: center;
-      padding: 6px;
-      z-index: 1000;
-    }
-    #toolbar button {
-      margin: 0 5px;
-      padding: 6px 10px;
-      border: none;
-      background: #444;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    #toolbar button:hover {
-      background: #666;
-    }
-    #viewerContainer {
-      padding-top: 45px; /* toolbar space */
-    }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 24px; }
+    h2 { margin-top: 0; }
+    #members { margin: 12px 0 18px 0; }
+    button { margin: 6px 8px 6px 0; padding: 10px 16px; font-size: 1em; }
+    .audio-list { margin-top: 32px; }
+    .audio-block { margin-bottom: 16px; }
+    .audio-label { font-size: 0.93em; color: #333; margin-bottom: 4px; display: block; }
   </style>
 </head>
 <body>
-  <div id="toolbar">
-    <button id="prev">◀ Prev</button>
-    <span id="page_num"></span> / <span id="page_count"></span>
-    <button id="next">Next ▶</button>
-  </div>
-  <div id="viewerContainer">
-    <canvas id="pdf-canvas"></canvas>
+  <div class="container">
+    <h2>WebRTC Group VOIP (Audio Call) Demo</h2>
+    <div>
+      <button id="startCallBtn">Start Call</button>
+      <button id="joinCallBtn">Join Call</button>
+      <span id="status"></span>
+    </div>
+    <div id="members"></div>
+
+    <div class="audio-list" id="audioList">
+      <div class="audio-block">
+        <span class="audio-label">Your audio (muted locally)</span>
+        <audio id="localAudio" autoplay muted></audio>
+      </div>
+      <!-- Remote audio elements inserted below -->
+    </div>
   </div>
 
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Scaledrone Library -->
+  <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
   <script>
-    // PDF.js setup
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    // === CONFIGURATION ===
+    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // <- Replace!
+    const ROOM_NAME = 'observable-voip-group-room';
 
-    // Change this to your server PDF URL
-    const url = "https://saarathy.in:2000/files/f8b4f777271ba544a545f26d07ab1d9287978e510384108f85d4dedfb2801a17_272494";
+    // === GLOBALS ===
+    let drone = null;
+    let room = null;
+    let localStream = null;
+    let members = [];
+    const peerConnections = {};
+    const audioElements = {};
 
-    let pdfDoc = null,
-        pageNum = 1,
-        scale = 1.2, // zoom level
-        canvas = document.getElementById("pdf-canvas"),
-        ctx = canvas.getContext("2d");
+    // === UI ELEMENTS ===
+    const startCallBtn = document.getElementById('startCallBtn');
+    const joinCallBtn = document.getElementById('joinCallBtn');
+    const statusEl = document.getElementById('status');
+    const audioList = document.getElementById('audioList');
+    const membersEl = document.getElementById('members');
+    const localAudio = document.getElementById('localAudio');
 
-    function renderPage(num) {
-      pdfDoc.getPage(num).then(function(page) {
-        let viewport = page.getViewport({ scale });
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        let renderContext = {
-          canvasContext: ctx,
-          viewport: viewport
-        };
-        page.render(renderContext);
-        document.getElementById("page_num").textContent = num;
-      });
+    // === UTILITY FUNCTIONS ===
+    function logStatus(msg) {
+      statusEl.textContent = msg;
     }
 
-    function queueRenderPage(num) {
-      if (num >= 1 && num <= pdfDoc.numPages) {
-        pageNum = num;
-        renderPage(num);
+    function showMembers() {
+      membersEl.textContent = 'Room members: ' +
+        members.map(m => m.id === drone.clientId ? m.id + " (You)" : m.id).join(', ');
+    }
+
+    // === SCALEDONE INITIALIZATION ===
+    drone = new ScaleDrone(CHANNEL_ID);
+    drone.on('open', error => {
+      if (error) { logStatus("Scaledrone connection failed."); return; }
+      logStatus("Connected to Scaledrone.");
+      room = drone.subscribe(ROOM_NAME);
+
+      room.on('open', err => {
+        if (err) { logStatus("Room join error."); }
+      });
+
+      // Initial member list
+      room.on('members', ms => {
+        members = ms;
+        showMembers();
+      });
+
+      // Members update (optional)
+      room.on('member_join', member => {
+        members.push(member);
+        showMembers();
+      });
+      room.on('member_leave', member => {
+        members = members.filter(m => m.id !== member.id);
+        showMembers();
+        // Optionally, clean up audio and connection if needed
+        if (peerConnections[member.id]) {
+          peerConnections[member.id].close();
+          delete peerConnections[member.id];
+        }
+        if (audioElements[member.id]) {
+          audioElements[member.id].remove();
+          delete audioElements[member.id];
+        }
+      });
+
+      // Listen for all signaling messages
+      room.on('data', (data, client) => {
+        if (!client || client.id === drone.clientId) return;
+        // Only handle messages addressed to this user or to everyone
+        handleSignalingData(data, client.id);
+      });
+    });
+
+    // === SIGNALING MESSAGES ===
+    function sendSignal(targetId, body) {
+      // Direct message wrapped for routing
+      room.publish({ message: { to: targetId, from: drone.clientId, data: body } });
+    }
+
+    // === START CALL ===
+    startCallBtn.onclick = function () {
+      // Notify all users to join except self (simple broadcast)
+      members.forEach(m => {
+        if (m.id !== drone.clientId) sendSignal(m.id, { type: 'JOIN_CALL' });
+      });
+      logStatus("Start Call: invited others to join.");
+    };
+
+    // === JOIN CALL ===
+    joinCallBtn.onclick = async function() {
+      if (localStream) return;
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
+        localAudio.srcObject = localStream;
+        // For each existing member, make a peer connection
+        members.forEach(m => {
+          if (m.id !== drone.clientId) createPeerConnection(m.id, true);
+        });
+        logStatus("Joined call. Connecting with peers...");
+      } catch (e) {
+        logStatus("Could not access microphone.");
+      }
+    };
+
+    // === PEER CONNECTION LOGIC ===
+    function createPeerConnection(peerId, isInitiator) {
+      if (peerConnections[peerId]) return;
+
+      const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+
+      // Add local audio to connection
+      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+      // Send ICE candidates to peer via Scaledrone
+      pc.onicecandidate = event => {
+        if (event.candidate) sendSignal(peerId, { type: 'ICE', candidate: event.candidate });
+      };
+
+      // Play incoming remote stream
+      pc.ontrack = event => {
+        let el = audioElements[peerId];
+        if (!el) {
+          el = document.createElement('audio');
+          el.id = 'remote-audio-' + peerId;
+          el.autoplay = true;
+          el.controls = true;
+          let label = document.createElement('span');
+          label.className = "audio-label";
+          label.textContent = "Remote audio: " + peerId;
+          let block = document.createElement('div');
+          block.className = "audio-block";
+          block.appendChild(label);
+          block.appendChild(el);
+          audioList.appendChild(block);
+          audioElements[peerId] = el;
+        }
+        el.srcObject = event.streams[0];
+      };
+
+      // Save connection
+      peerConnections[peerId] = pc;
+
+      // Outgoing: initiator creates and sends offer
+      if (isInitiator) {
+        pc.createOffer()
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => sendSignal(peerId, { type: 'OFFER', sdp: pc.localDescription }));
       }
     }
 
-    document.getElementById("prev").addEventListener("click", () => {
-      if (pageNum <= 1) return;
-      queueRenderPage(pageNum - 1);
-    });
+    // === SIGNAL HANDLER ===
+    function handleSignalingData(message, fromId) {
+      const { type, sdp, candidate } = message.data || message;
 
-    document.getElementById("next").addEventListener("click", () => {
-      if (pageNum >= pdfDoc.numPages) return;
-      queueRenderPage(pageNum + 1);
-    });
+      // Ignore messages not meant for this client
+      if (message.to && message.to !== drone.clientId) return;
 
-    // Load PDF
-    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
-      pdfDoc = pdfDoc_;
-      document.getElementById("page_count").textContent = pdfDoc.numPages;
-      renderPage(pageNum);
-    });
+      switch (type) {
+        case 'JOIN_CALL':
+          // When prompted, non-initiator side connects as callee
+          if (localStream) createPeerConnection(fromId, false); // false: callee
+          break;
+        case 'OFFER':
+          {
+            let pc = peerConnections[fromId] || createPeerConnection(fromId, false);
+            pc.setRemoteDescription(new RTCSessionDescription(sdp))
+              .then(() => pc.createAnswer())
+              .then(answer => pc.setLocalDescription(answer))
+              .then(() => sendSignal(fromId, { type: 'ANSWER', sdp: pc.localDescription }));
+          }
+          break;
+        case 'ANSWER':
+          if (peerConnections[fromId])
+            peerConnections[fromId].setRemoteDescription(new RTCSessionDescription(sdp));
+          break;
+        case 'ICE':
+          if (peerConnections[fromId])
+            peerConnections[fromId].addIceCandidate(new RTCIceCandidate(candidate));
+          break;
+      }
+    }
   </script>
 </body>
 </html>
