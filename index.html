@@ -2,48 +2,143 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WebRTC Group Video Call (Scaledrone)</title>
+  <title>Professional WebRTC Group Video Call</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; background: #f0f2f4; margin: 0; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 20px; }
-    h2 { margin-top: 0; text-align: center; }
-    #buttons { text-align: center; margin-bottom: 10px; }
-    button { margin: 6px 12px; padding: 10px 20px; font-size: 1rem; }
-    #status { text-align: center; margin: 10px 0; font-weight: 600; color: #333; }
-    #members { margin: 10px 0; }
-    #videos {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: center;
-    }
-    video {
-      border-radius: 8px;
-      background: #000;
-      max-width: 280px;
-      width: 100%;
-      height: auto;
-      box-shadow: 0 0 6px rgba(0,0,0,0.15);
-    }
-    .video-block {
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #121212;
+      margin: 0;
+      padding: 20px;
+      color: #f0f0f0;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
-    .video-label {
-      margin-top: 6px;
-      font-size: 0.9rem;
-      color: #333;
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      background: #1e1e1e;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    h1 {
       text-align: center;
-      max-width: 280px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+
+    #buttons {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      background-color: #3f51b5;
+      border: none;
+      padding: 12px 28px;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(63,81,181,0.5);
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: #303f9f;
+      box-shadow: 0 6px 16px rgba(48,63,159,0.7);
+    }
+
+    button:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    #status {
+      text-align: center;
+      font-weight: 600;
+      color: #81d4fa;
+      min-height: 24px;
+      margin-bottom: 12px;
+      font-size: 1.1rem;
+      letter-spacing: 0.03em;
+    }
+
+    #members {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 0.9rem;
+      color: #bbb;
+      user-select: none;
+      min-height: 20px;
       word-break: break-word;
+    }
+
+    #videos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      justify-items: center;
+      overflow-y: auto;
+    }
+
+    .video-block {
+      position: relative;
+      width: 100%;
+      max-width: 280px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+      background: #000;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      height: auto;
+      background: black;
+      object-fit: cover;
+      border-radius: 12px;
+      display: block;
+    }
+
+    .video-label {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      background-color: rgba(0,0,0,0.6);
+      color: #81d4fa;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      text-align: center;
+      user-select: text;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>WebRTC Group Video Call (Scaledrone)</h2>
+    <h1>Professional WebRTC Group Video Call</h1>
     <div id="buttons">
       <button id="startCallBtn">Start Call</button>
       <button id="joinCallBtn">Join Call</button>
@@ -53,9 +148,8 @@
     <div id="videos">
       <div class="video-block">
         <video id="localVideo" autoplay muted playsinline></video>
-        <div class="video-label">You (Muted locally)</div>
+        <div class="video-label" title="You">You (Muted locally)</div>
       </div>
-      <!-- Remote videos appended here -->
     </div>
   </div>
 
@@ -80,16 +174,15 @@
     function logStatus(msg) { statusEl.textContent = msg; }
 
     function showMembersWithStatus() {
-      membersEl.innerHTML = "<strong>Room members:</strong><br>";
-      members.forEach(m => {
-        const div = document.createElement('div');
-        div.textContent = m.id + (m.id === drone.clientId ? " (You)" : "");
-        if (m.id === drone.clientId) div.style.fontWeight = "bold";
-        if (peerConnections[m.id]) {
-          div.style.color = 'green';
-          div.textContent += " 🌐 Connected";
+      membersEl.innerHTML = "<strong>Room members:</strong> ";
+      members.forEach((m, idx) => {
+        const span = document.createElement('span');
+        span.textContent = m.id === drone.clientId ? `${m.id} (You)` : m.id;
+        span.style.color = m.id === drone.clientId ? '#81d4fa' : '#bbb';
+        membersEl.appendChild(span);
+        if (idx < members.length - 1) {
+          membersEl.appendChild(document.createTextNode(', '));
         }
-        membersEl.appendChild(div);
       });
     }
 
@@ -198,17 +291,20 @@
       pc.ontrack = event => {
         if (!videoElements[peerId]) {
           const video = document.createElement('video');
-          video.id = 'remote-video-' + peerId;
+          video.setAttribute('playsinline', '');
           video.autoplay = true;
-          video.playsInline = true;
           video.controls = true;
           video.style.maxWidth = "280px";
-          video.style.borderRadius = "8px";
+          video.style.borderRadius = "12px";
+          video.style.backgroundColor = "#000";
+
           const block = document.createElement('div');
           block.className = 'video-block';
+
           const label = document.createElement('div');
           label.className = 'video-label';
-          label.textContent = 'Remote: ' + peerId;
+          label.textContent = peerId;
+
           block.appendChild(video);
           block.appendChild(label);
           videosEl.appendChild(block);
