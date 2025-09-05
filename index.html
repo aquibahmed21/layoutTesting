@@ -1,55 +1,47 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>WebRTC Group Voice Call with Scaledrone</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <title>WebRTC Group VOIP Call (Scaledrone)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 24px; }
+    body { font-family: Arial, sans-serif; background: #f0f2f4; }
+    .container { max-width: 640px; margin: 48px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #ccc; padding: 28px;}
     h2 { margin-top: 0; }
-    #members { margin: 12px 0 18px 0; }
-    button { margin: 6px 8px 6px 0; padding: 10px 16px; font-size: 1em; }
-    .audio-list { margin-top: 32px; }
+    #status { display: block; margin: 10px 0 20px 0; font-size: 1em; }
+    button { margin: 7px 12px 7px 0; padding: 10px 18px; font-size: 1em;}
+    #members, .audio-list { margin-top: 20px; }
     .audio-block { margin-bottom: 16px; }
-    .audio-label { font-size: 0.93em; color: #333; margin-bottom: 4px; display: block; }
+    .audio-label { font-size: .92em; color: #444; margin-bottom: 3px; display: block; }
+    .connected { color: #0a0; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>WebRTC Group VOIP (Audio Call) Demo</h2>
-    <div>
-      <button id="startCallBtn">Start Call</button>
-      <button id="joinCallBtn">Join Call</button>
-      <span id="status"></span>
-    </div>
+    <h2>WebRTC Group VoIP Call (Scaledrone)</h2>
+    <button id="startCallBtn">Start Call</button>
+    <button id="joinCallBtn">Join Call</button>
+    <span id="status"></span>
     <div id="members"></div>
-
     <div class="audio-list" id="audioList">
       <div class="audio-block">
         <span class="audio-label">Your audio (muted locally)</span>
         <audio id="localAudio" autoplay muted></audio>
       </div>
-      <!-- Remote audio elements inserted below -->
+      <!-- Remote audios appended dynamically -->
     </div>
   </div>
-
-  <!-- Scaledrone Library -->
   <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
   <script>
-    // === CONFIGURATION ===
-    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // <- Replace!
+    const CHANNEL_ID = 'EoIG3R1I4JdyS4L1'; // Replace this!
     const ROOM_NAME = 'observable-voip-group-room';
 
-    // === GLOBALS ===
-    let drone = null;
-    let room = null;
-    let localStream = null;
+    let drone = null, room = null, localStream = null;
     let members = [];
     const peerConnections = {};
     const audioElements = {};
+    const iceCandidateQueues = {}; // New: queues per peer for ICE candidates received early
 
-    // === UI ELEMENTS ===
     const startCallBtn = document.getElementById('startCallBtn');
     const joinCallBtn = document.getElementById('joinCallBtn');
     const statusEl = document.getElementById('status');
@@ -57,17 +49,22 @@
     const membersEl = document.getElementById('members');
     const localAudio = document.getElementById('localAudio');
 
-    // === UTILITY FUNCTIONS ===
-    function logStatus(msg) {
-      statusEl.textContent = msg;
+    function logStatus(msg) { statusEl.textContent = msg; }
+
+    function showMembersWithStatus() {
+      membersEl.innerHTML = "<strong>Room members:</strong><br>";
+      members.forEach(m => {
+        const div = document.createElement('div');
+        div.textContent = m.id + (m.id === drone.clientId ? " (You)" : "");
+        if (m.id === drone.clientId) div.style.fontWeight = "bold";
+        if (peerConnections[m.id]) {
+          div.className = "connected";
+          div.textContent += " 🌐 Connected";
+        }
+        membersEl.appendChild(div);
+      });
     }
 
-    function showMembers() {
-      membersEl.textContent = 'Room members: ' +
-        members.map(m => m.id === drone.clientId ? m.id + " (You)" : m.id).join(', ');
-    }
-
-    // === SCALEDONE INITIALIZATION ===
     drone = new ScaleDrone(CHANNEL_ID);
     drone.on('open', error => {
       if (error) { logStatus("Scaledrone connection failed."); return; }
@@ -78,21 +75,18 @@
         if (err) { logStatus("Room join error."); }
       });
 
-      // Initial member list
       room.on('members', ms => {
         members = ms;
-        showMembers();
+        showMembersWithStatus();
       });
 
-      // Members update (optional)
       room.on('member_join', member => {
         members.push(member);
-        showMembers();
+        showMembersWithStatus();
       });
+
       room.on('member_leave', member => {
         members = members.filter(m => m.id !== member.id);
-        showMembers();
-        // Optionally, clean up audio and connection if needed
         if (peerConnections[member.id]) {
           peerConnections[member.id].close();
           delete peerConnections[member.id];
@@ -101,62 +95,63 @@
           audioElements[member.id].remove();
           delete audioElements[member.id];
         }
+        showMembersWithStatus();
       });
 
-      // Listen for all signaling messages
       room.on('data', (data, client) => {
         if (!client || client.id === drone.clientId) return;
-        // Only handle messages addressed to this user or to everyone
         handleSignalingData(data, client.id);
       });
     });
 
-    // === SIGNALING MESSAGES ===
     function sendSignal(targetId, body) {
-      // Direct message wrapped for routing
-      room.publish({ message: { to: targetId, from: drone.clientId, data: body } });
+      drone.publish({
+        room: ROOM_NAME,
+        message: {
+          to: targetId,
+          from: drone.clientId,
+          data: body
+        }
+      });
     }
 
-    // === START CALL ===
     startCallBtn.onclick = function () {
-      // Notify all users to join except self (simple broadcast)
       members.forEach(m => {
         if (m.id !== drone.clientId) sendSignal(m.id, { type: 'JOIN_CALL' });
       });
       logStatus("Start Call: invited others to join.");
     };
 
-    // === JOIN CALL ===
     joinCallBtn.onclick = async function() {
       if (localStream) return;
       try {
         localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: false});
         localAudio.srcObject = localStream;
-        // For each existing member, make a peer connection
         members.forEach(m => {
           if (m.id !== drone.clientId) createPeerConnection(m.id, true);
         });
-        logStatus("Joined call. Connecting with peers...");
+        showMembersWithStatus();
+        logStatus("Joined call. Connecting...");
       } catch (e) {
         logStatus("Could not access microphone.");
       }
     };
 
-    // === PEER CONNECTION LOGIC ===
     function createPeerConnection(peerId, isInitiator) {
-      if (peerConnections[peerId]) return;
+      if (peerConnections[peerId]) return peerConnections[peerId];
 
       const pc = new RTCPeerConnection({iceServers: [{urls: 'stun:stun.l.google.com:19302'}]});
+      peerConnections[peerId] = pc;
+      iceCandidateQueues[peerId] = [];
 
-      // Add local audio to connection
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      if (localStream) {
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+      }
 
-      // Send ICE candidates to peer via Scaledrone
       pc.onicecandidate = event => {
         if (event.candidate) sendSignal(peerId, { type: 'ICE', candidate: event.candidate });
       };
 
-      // Play incoming remote stream
       pc.ontrack = event => {
         let el = audioElements[peerId];
         if (!el) {
@@ -164,6 +159,7 @@
           el.id = 'remote-audio-' + peerId;
           el.autoplay = true;
           el.controls = true;
+          el.muted = false;
           let label = document.createElement('span');
           label.className = "audio-label";
           label.textContent = "Remote audio: " + peerId;
@@ -177,47 +173,60 @@
         el.srcObject = event.streams[0];
       };
 
-      // Save connection
-      peerConnections[peerId] = pc;
-
-      // Outgoing: initiator creates and sends offer
       if (isInitiator) {
         pc.createOffer()
           .then(offer => pc.setLocalDescription(offer))
           .then(() => sendSignal(peerId, { type: 'OFFER', sdp: pc.localDescription }));
       }
+      return pc;
     }
 
-    // === SIGNAL HANDLER ===
-    function handleSignalingData(message, fromId) {
+    async function handleSignalingData(message, fromId) {
       const { type, sdp, candidate } = message.data || message;
-
-      // Ignore messages not meant for this client
       if (message.to && message.to !== drone.clientId) return;
 
       switch (type) {
         case 'JOIN_CALL':
-          // When prompted, non-initiator side connects as callee
-          if (localStream) createPeerConnection(fromId, false); // false: callee
+          if (localStream) createPeerConnection(fromId, false);
           break;
-        case 'OFFER':
-          {
-            let pc = peerConnections[fromId] || createPeerConnection(fromId, false);
-            pc.setRemoteDescription(new RTCSessionDescription(sdp))
-              .then(() => pc.createAnswer())
-              .then(answer => pc.setLocalDescription(answer))
-              .then(() => sendSignal(fromId, { type: 'ANSWER', sdp: pc.localDescription }));
+        case 'OFFER': {
+          const pc = peerConnections[fromId] || createPeerConnection(fromId, false);
+          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          // Add any queued ICE candidates now
+          for (let c of iceCandidateQueues[fromId]) {
+            await pc.addIceCandidate(c);
+          }
+          iceCandidateQueues[fromId] = [];
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          sendSignal(fromId, { type: 'ANSWER', sdp: pc.localDescription });
+          break;
+        }
+        case 'ANSWER': {
+          const pc = peerConnections[fromId];
+          if (!pc) return;
+          await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          // Add any queued ICE candidates now
+          for (let c of iceCandidateQueues[fromId]) {
+            await pc.addIceCandidate(c);
+          }
+          iceCandidateQueues[fromId] = [];
+          break;
+        }
+        case 'ICE': {
+          const pc = peerConnections[fromId];
+          if (!pc) return;
+          const iceCandidate = new RTCIceCandidate(candidate);
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(iceCandidate);
+          } else {
+            // Queue candidate if remoteDescription not set
+            iceCandidateQueues[fromId].push(iceCandidate);
           }
           break;
-        case 'ANSWER':
-          if (peerConnections[fromId])
-            peerConnections[fromId].setRemoteDescription(new RTCSessionDescription(sdp));
-          break;
-        case 'ICE':
-          if (peerConnections[fromId])
-            peerConnections[fromId].addIceCandidate(new RTCIceCandidate(candidate));
-          break;
+        }
       }
+      showMembersWithStatus();
     }
   </script>
 </body>
