@@ -1,270 +1,51 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ScaleDrone WebRTC Multi-party Demo</title>
+  <meta charset="UTF-8" />
+  <title>Scaledrone Rooms</title>
   <style>
     body {
-      margin: 0;
       font-family: sans-serif;
-      background: #0f1724;
-      color: #eee;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh
+      margin: 2rem;
     }
 
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      background: #1e293b
+    input,
+    button {
+      margin: 0.25rem;
+      padding: 0.5rem;
     }
 
-    h1 {
-      font-size: 18px;
-      margin: 0
+    .contacts {
+      margin-top: 1rem;
+      border: 1px solid #ddd;
+      padding: 1rem;
+      max-width: 300px;
     }
 
-    .controls button {
-      margin-left: 8px;
-      padding: 6px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer
-    }
-
-    .primary {
-      background: #06b6d4;
-      color: #021018;
-      font-weight: 600
-    }
-
-    .ghost {
-      background: transparent;
-      color: #ccc;
-      border: 1px dashed #555
-    }
-
-    main {
-      flex: 1;
-      display: flex;
-      gap: 16px;
-      padding: 16px
-    }
-
-    .video-grid {
-      flex: 1;
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))
-    }
-
-    .video-card {
-      position: relative;
-      background: #111;
-      border-radius: 10px;
-      overflow: hidden;
-      cursor: pointer
-    }
-
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-      background: #000
-    }
-
-    .overlay {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 4px 6px;
-      border-radius: 6px;
-      font-size: 13px
-    }
-
-    .controls-under {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      display: flex;
-      gap: 6px
-    }
-
-    .controls-under button {
-      font-size: 12px;
-      padding: 4px 6px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: rgba(0, 0, 0, 0.5);
-      color: #fff
-    }
-
-    aside {
-      width: 280px;
-      background: #1e293b;
-      padding: 12px;
-      border-radius: 10px;
-      overflow: auto
-    }
-
-    .settings h3 {
-      margin-top: 0
-    }
-
-    label {
-      display: block;
-      margin-top: 6px;
-      font-size: 13px
-    }
-
-    footer {
-      padding: 10px;
-      text-align: center;
-      background: #1e293b;
-      font-size: 13px;
-      color: #aaa
+    .contact {
+      padding: 0.25rem 0;
     }
   </style>
 </head>
 
 <body>
-  <header>
-    <h1>WebRTC Video Call</h1>
-    <div class="controls">
-      <button id="startCallBtn" class="primary">Start Call</button>
-      <button id="joinBtn" class="ghost" style="display:none">Join Call</button>
-      <button id="leaveBtn" style="display:none">Hang Up</button>
+  <div id="app">
+    <h2>Scaledrone Chat Rooms</h2>
+    <div>
+      <input id="channel" placeholder="Channel ID" value="EoIG3R1I4JdyS4L1" />
+      <input id="room" placeholder="Room Name" value="observable-e7b2d4" />
+      <button id="connectBtn">Connect</button>
     </div>
-  </header>
 
-  <main>
-    <div class="video-grid" id="videoGrid"></div>
-    <aside>
-      <div class="settings">
-        <h3>Video Settings</h3>
-        <label><input type="radio" name="quality" value="low"> Low (320×240, 15fps)</label>
-        <label><input type="radio" name="quality" value="medium" checked> Medium (640×480, 30fps)</label>
-        <label><input type="radio" name="quality" value="high"> High (1280×720, 60fps)</label>
-      </div>
-    </aside>
-  </main>
+    <div class="contacts">
+      <h3>Online Users</h3>
+      <div id="contacts"></div>
+    </div>
+  </div>
 
-  <footer>Built with WebRTC + ScaleDrone</footer>
-
-  <script src="https://cdn.scaledrone.com/scaledrone.min.js"></script>
-  <script>
-    const SCALEDRONE_CHANNEL_ID = 'EoIG3R1I4JdyS4L1';
-    const ROOM_NAME = 'observable-webrtc-demo-v1';
-    let drone, room, clientId, localStream, inCall = false, isInitiator = false;
-    const peers = new Map();
-    const RTC_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-    const videoGrid = document.getElementById('videoGrid');
-    const startCallBtn = document.getElementById('startCallBtn');
-    const joinBtn = document.getElementById('joinBtn');
-    const leaveBtn = document.getElementById('leaveBtn');
-
-    function log() { console.log(...arguments); }
-
-    function createVideoCard(id, isLocal = false) {
-      if (document.getElementById('card-' + id)) return document.getElementById('video-' + id);
-      const card = document.createElement('div'); card.className = 'video-card'; card.id = 'card-' + id;
-      const vid = document.createElement('video'); vid.autoplay = true; vid.playsInline = true; vid.id = 'video-' + id; if (isLocal) vid.muted = true;
-      const overlay = document.createElement('div'); overlay.className = 'overlay'; overlay.textContent = id + (isLocal ? ' (You)' : '');
-      const controls = document.createElement('div'); controls.className = 'controls-under';
-      if (isLocal) {
-        const muteA = document.createElement('button'); muteA.textContent = 'Mute';
-        muteA.onclick = () => { const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled; muteA.textContent = t.enabled ? 'Mute' : 'Unmute'; };
-        const muteV = document.createElement('button'); muteV.textContent = 'Video Off';
-        muteV.onclick = () => { const t = localStream.getVideoTracks()[0]; t.enabled = !t.enabled; muteV.textContent = t.enabled ? 'Video Off' : 'Video On'; };
-        controls.append(muteA, muteV);
-      } else {
-        const muteR = document.createElement('button'); muteR.textContent = 'Mute User';
-        muteR.onclick = () => { vid.muted = !vid.muted; muteR.textContent = vid.muted ? 'Unmute User' : 'Mute User'; };
-        const hideR = document.createElement('button'); hideR.textContent = 'Hide Video';
-        hideR.onclick = () => { vid.style.display = vid.style.display === 'none' ? 'block' : 'none'; hideR.textContent = vid.style.display === 'none' ? 'Show Video' : 'Hide Video'; };
-        controls.append(muteR, hideR);
-      }
-      card.append(vid, overlay, controls);
-      videoGrid.appendChild(card);
-      // fullscreen on double click
-      card.ondblclick = () => {
-        if (document.fullscreenElement) { document.exitFullscreen(); }
-        else { card.requestFullscreen(); }
-      };
-      return vid;
-    }
-    function removeVideo(id) { const c = document.getElementById('card-' + id); if (c) c.remove(); }
-
-    async function getLocalMedia(constraints) {
-      if (localStream) { for (const t of localStream.getTracks()) t.stop(); }
-      constraints = constraints || { video: { width: 640, height: 480, frameRate: 30 }, audio: true };
-      localStream = await navigator.mediaDevices.getUserMedia(constraints);
-      const vid = createVideoCard(clientId, true); vid.srcObject = localStream;
-      return localStream;
-    }
-
-    function createPC(remoteId, offer) {
-      if (peers.has(remoteId)) return;
-      const pc = new RTCPeerConnection(RTC_CONFIG);
-      localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      const rv = createVideoCard(remoteId, false);
-      pc.ontrack = e => { rv.srcObject = e.streams[0]; };
-      pc.onicecandidate = e => { if (e.candidate) sendMsg({ type: 'candidate', from: clientId, to: remoteId, candidate: e.candidate }); };
-      peers.set(remoteId, { pc });
-      if (offer) { pc.createOffer().then(d => pc.setLocalDescription(d)).then(() => sendMsg({ type: 'offer', from: clientId, to: remoteId, sdp: pc.localDescription })); }
-    }
-    function handleMsg(m) {
-      if (!m || !m.type || m.from === clientId) return;
-      if (m.type === 'callStarted' && !inCall) { joinBtn.style.display = 'inline-block'; }
-      if (m.type === 'join' && inCall) { createPC(m.from, true); }
-      if (m.type === 'hangup') { if (peers.has(m.from)) { peers.get(m.from).pc.close(); peers.delete(m.from); } removeVideo(m.from); }
-      if (m.to !== clientId) return;
-      if (m.type === 'offer') { createPC(m.from, false); peers.get(m.from).pc.setRemoteDescription(new RTCSessionDescription(m.sdp)).then(() => peers.get(m.from).pc.createAnswer()).then(a => { peers.get(m.from).pc.setLocalDescription(a); sendMsg({ type: 'answer', from: clientId, to: m.from, sdp: a }); }); }
-      if (m.type === 'answer') { peers.get(m.from).pc.setRemoteDescription(new RTCSessionDescription(m.sdp)); }
-      if (m.type === 'candidate') { peers.get(m.from).pc.addIceCandidate(new RTCIceCandidate(m.candidate)); }
-    }
-    function sendMsg(m) { drone.publish({ room: ROOM_NAME, message: m }); }
-
-    function startCall() { isInitiator = true; inCall = true; getLocalMedia().then(() => sendMsg({ type: 'callStarted', from: clientId })); startCallBtn.style.display = 'none'; leaveBtn.style.display = 'inline-block'; }
-    function joinCall() { inCall = true; getLocalMedia().then(() => sendMsg({ type: 'join', from: clientId })); joinBtn.style.display = 'none'; leaveBtn.style.display = 'inline-block'; }
-    function hangup() { for (const [id, o] of peers) { o.pc.close(); removeVideo(id); } peers.clear(); if (localStream) { localStream.getTracks().forEach(t => t.stop()); removeVideo(clientId); } sendMsg({ type: 'hangup', from: clientId }); inCall = false; startCallBtn.style.display = 'inline-block'; joinBtn.style.display = 'none'; leaveBtn.style.display = 'none'; }
-
-    startCallBtn.onclick = startCall; joinBtn.onclick = joinCall; leaveBtn.onclick = hangup;
-
-    function setupSD() {
-      drone = new ScaleDrone(SCALEDRONE_CHANNEL_ID);
-      drone.on('open', err => { if (err) return console.error(err); clientId = drone.clientId; room = drone.subscribe(ROOM_NAME); room.on('data', m => handleMsg(m)); });
-    }
-    setupSD();
-
-    /* Video quality controls */
-    document.querySelectorAll('input[name="quality"]').forEach(r => {
-      r.onchange = async () => {
-        if (!inCall) return;
-        let constraints;
-        if (r.value === 'low') constraints = { video: { width: 320, height: 240, frameRate: 15 }, audio: true };
-        if (r.value === 'medium') constraints = { video: { width: 640, height: 480, frameRate: 30 }, audio: true };
-        if (r.value === 'high') constraints = { video: { width: 1280, height: 720, frameRate: 60 }, audio: true };
-        await getLocalMedia(constraints);
-        // replace tracks in existing PCs
-        peers.forEach(({ pc }) => {
-          const senders = pc.getSenders();
-          localStream.getTracks().forEach(t => {
-            const s = senders.find(s => s.track && s.track.kind === t.kind);
-            if (s) s.replaceTrack(t);
-          });
-        });
-      };
-    });
-  </script>
+  <script type="module" src="/src/Main.ts"></script>
+  <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
 </body>
 
 </html>
