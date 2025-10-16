@@ -1,4 +1,4 @@
-import type { Member } from "./Utils/Types";
+import type { Member } from "./Constants/Types";
 
 export class UI
 {

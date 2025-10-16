@@ -2,6 +2,7 @@
 export const Util = {
   // Common DOM events
   EVENT_CLICK: "click",
+  EVENT_DOM_CONTENT_LOADED: "DOMContentLoaded",
 
   // Common attribute names
   ATTR_ID: "id",
