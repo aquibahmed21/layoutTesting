@@ -1,7 +1,7 @@
-import { DroneService } from "./DroneService";
 import { UI } from "./UI";
 import { Base } from "./Utils/Base";
 import { Util } from "./Constants/Util";
+import { DroneService } from "./DroneService";
 
 export class App extends Base
 {
