@@ -93,6 +93,4 @@ export class Logins extends Page.Base
     }
     return false;
   }
-
-  private static readonly s_divLoginContainer = "divLoginContainer";
 }

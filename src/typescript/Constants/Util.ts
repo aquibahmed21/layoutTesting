@@ -51,6 +51,7 @@ export class Util
     if (!credentials) return null;
     const decodedCredentials = atob(credentials);
     const [username, password, name, status, id] = decodedCredentials.split(":");
+    console.log({password})
     return { username, name, status, id };
   }
 
