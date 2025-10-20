@@ -1,22 +1,20 @@
-import type { Member } from "./Constants/Types";
 
-export class UI
+
+import { Logins } from "./Pages/Logins";
+import { Base } from "./Utils/Base";
+
+export class UI extends Base
 {
   constructor()
   {
-    this.m_contactsEl = document.getElementById("contacts")!;
+    super();
   }
 
-  public UpdateContacts(members: Member[])
+  protected Load():
+  void
   {
-    this.m_contactsEl.innerHTML = "";
-    members.forEach((m) => {
-      const div = document.createElement("div");
-      div.className = "contact";
-      div.textContent = m.clientData?.name || m.id;
-      this.m_contactsEl.appendChild(div);
-    });
+    // Initialize all Pages from here
+    new Logins();
+    // new Contacts();
   }
-
-  private m_contactsEl: HTMLElement;
 }

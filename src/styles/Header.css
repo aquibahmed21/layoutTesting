@@ -1,0 +1,40 @@
+.header
+{
+  padding: 0 8px;
+  text-align: center;
+  color: #fff;
+  display: flex;
+  border: unset;
+  border-radius: unset;
+  border-bottom: 1px solid #f0f2f940;
+  column-gap: 8px;
+  height: 48px;
+}
+
+#divProfile
+{
+  display: flex;
+  flex: 1;
+  column-gap: 8px;
+}
+
+#imgProfile
+{
+  width: 28px;
+}
+
+#divDetails
+{
+  flex: 1;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+
+.headerSection
+{
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

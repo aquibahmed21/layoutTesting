@@ -1,0 +1,82 @@
+#app:has(.login:not(.Util_hide))
+{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh
+}
+
+.login
+{
+  margin: 0 8px;
+  flex: 1;
+  max-width: 600px;
+}
+
+/* Style the tab */
+.tab {
+  overflow: hidden;
+  display: flex;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 4px 12px;
+  transition: 0.3s;
+  font-size: 18px;
+  flex: 1;
+  color: #fff;
+  background-color: #cccccc3d;
+  border-bottom: 1px solid #f0f2f940;
+}
+
+/* Change background color of buttons on hover */
+.tab button:hover {
+  background-color: inherit;
+}
+
+/* Create an active/current tablink class */
+.tab button.active {
+  background-color: transparent;
+}
+
+/* Style the tab content */
+.tabcontent {
+  padding: 6px 12px;
+  border-top: none;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+input {
+  padding: 10px;
+  border-radius: 5px;
+  outline: none;
+  background: #cccccc3d;
+  border: 1px solid #f0f2f940;
+  color: #fff;
+}
+
+button[type="submit"] {
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background-color: #4caf5059;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button[type="submit"]:hover {
+  background-color: #4CAF50
+}

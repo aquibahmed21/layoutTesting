@@ -5,31 +5,33 @@ import { type Member, type ScaleDrone } from "./Constants/Types";
 export class DroneService
 {
   constructor(channelID: string,
-              roomName: string,
-              onMembersUpdate: (members: Member[]) => void)
+              roomName: string)
   {
     this.m_channelId = channelID;
     this.m_roomName = roomName;
-    this.onMembersUpdate = onMembersUpdate;
   }
 
-  public Connect():
-  void
+  public async Connect(name: string, status: string, username: string, id: string):
+  Promise<boolean>
   {
-    this.m_drone = new (window as any).Scaledrone(this.m_channelId, { data: { name: `User-${Math.floor(Math.random() * 1000)}` } });
+    return await new Promise(resolve => {
+      this.m_drone = new (window as any).Scaledrone(this.m_channelId, { data: { name, status, username, id } });
 
-    this.m_drone.on(DroneService.EVENT_OPEN, () =>
-    {
-      console.log(MSG_LOGS.DRONE_CONNECTED, this.m_drone?.clientId);
-      this.SubscribeToRoom();
-    });
+      this.m_drone.on(DroneService.EVENT_OPEN, () =>
+      {
+        console.log(MSG_LOGS.DRONE_CONNECTED, this.m_drone?.clientId);
+        this.SubscribeToRoom();
+        resolve(true);
+      });
 
-    this.m_drone.on(DroneService.EVENT_ERROR, (error: Error) => {
-      console.error(MSG_LOGS.DRONE_CONNECTION_FAILED, error);
-    });
+      this.m_drone.on(DroneService.EVENT_ERROR, (error: Error) => {
+        console.error(MSG_LOGS.DRONE_CONNECTION_FAILED, error);
+        resolve(false);
+      });
 
-    this.m_drone.on(DroneService.EVENT_CLOSE, () => {
-      console.log(MSG_LOGS.DRONE_DISCONNECTED);
+      this.m_drone.on(DroneService.EVENT_CLOSE, () => {
+        console.log(MSG_LOGS.DRONE_DISCONNECTED);
+      });
     });
   }
 
@@ -52,17 +54,17 @@ export class DroneService
 
     room.on(DroneService.EVENT_MEMBERS, (members: Member[]) => {
       this.m_members = members;
-      this.onMembersUpdate(this.m_members);
+      this.m_membersUpdateCallback(this.m_members);
     });
 
     room.on(DroneService.EVENT_MEMBER_JOIN, (member: Member) => {
       this.m_members.push(member);
-      this.onMembersUpdate(this.m_members);
+      this.m_membersUpdateCallback(this.m_members);
     });
 
     room.on(DroneService.EVENT_MEMBER_LEAVE, (member: Member) => {
       this.m_members = this.m_members.filter((m) => m.id !== member.id);
-      this.onMembersUpdate(this.m_members);
+      this.m_membersUpdateCallback(this.m_members);
     });
 
     room.on(DroneService.EVENT_MESSAGE, this.HandleEventMessage.bind(this));
@@ -94,11 +96,16 @@ export class DroneService
     this.m_drone.publish({ data });
   }
 
+  public set onMembersUpdate(callback: (members: Member[]) => void) {
+    this.m_membersUpdateCallback = callback;
+  }
+
+
   private m_drone: ScaleDrone = {} as ScaleDrone;
   private m_members: Member[] = [];
   private m_channelId: string;
   private m_roomName: string;
-  private onMembersUpdate: (members: Member[]) => void;
+  private m_membersUpdateCallback: (members: Member[]) => void = null as any;
 
   private static readonly EVENT_OPEN = "open";
   private static readonly EVENT_ERROR = "error";

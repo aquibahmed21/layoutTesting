@@ -1,47 +1,55 @@
-export class Base
+
+import { Util } from "../Constants/Util";
+import type { DroneService } from "../DroneService";
+
+export abstract class Base
 {
+  constructor(drone?: DroneService)
+  {
+    if (!Base.RootElement)
+      Base.RootElement = document.getElementById(Util.ELEMENT_APP)!;
+    Base.dynamicID = "div" + this.constructor.name;
+    if (drone)
+      this.m_droneService = drone;
+    this.Load();
+  }
+
+  protected abstract Load(): void;
   /**
    * Returns the first matching element by ID from document
    */
-  public GetElementByID(id: string):
-  HTMLElement | null
+  public GetElementByID<T extends HTMLElement>(id: string):
+  T
   {
-    return document.getElementById(id);
+    return Base.RootElement.querySelector(`#${id}`) as T;
   }
 
   /**
    * Finds an element by ID within a given parent element
    */
-  public FindByID<T extends HTMLElement>(parent: T | null,
+  public FindByID<T extends HTMLElement>(parent: HTMLDivElement | HTMLElement,
                                          id: string):
-  T | null
+  T
   {
-    if (!parent) return null;
-    return parent.querySelector(`#${id}`) as T;
+    if (!parent)
+      return null as any;
+    return parent?.querySelector(`#${id}`) as T;
   }
 
-  /**
-   * Utility wrapper for creating elements
-   */
-  public CreateElement(tag: string,
-                       className?: string,
-                       text?: string):
-  HTMLElement
+  public FindByClass<T extends HTMLElement>(parent: HTMLDivElement | HTMLElement,
+                                            className: string):
+  T
   {
-    const el = document.createElement(tag);
-    if (className) el.className = className;
-    if (text) el.textContent = text;
-    return el;
+    return parent.querySelector(`.${className}`) as T;
   }
 
-  /**
-   * Utility to add event listeners safely
-   */
-  public On(el: HTMLElement | null,
-            event: string,
-            callback: (e: Event) => void):
-  void
+  public get m_divContainer():
+  HTMLDivElement
   {
-    if (el) el.addEventListener(event, callback);
+    return this.FindByClass(Base.RootElement, Base.dynamicID);
   }
+
+  private static dynamicID = "";
+  public static RootElement: HTMLElement;
+  public m_droneService: DroneService = null as any;
 }
