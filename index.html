@@ -4,26 +4,69 @@
 <head>
   <meta charset="UTF-8" />
   <title>Vybrix</title>
-  <script type="module" crossorigin src="/layoutTesting/assets/index-Cl879AF9.js"></script>
-  <link rel="stylesheet" crossorigin href="/layoutTesting/assets/index-BtTv489j.css">
+  <script type="module" crossorigin src="/layoutTesting/assets/index-Bk1vppjd.js"></script>
+  <link rel="stylesheet" crossorigin href="/layoutTesting/assets/index-CA7sfsAg.css">
 </head>
 
 <body>
   <div id="app">
-    <h2>Scaledrone Chat Rooms</h2>
-    <div>
-      <input id="channel" placeholder="Channel ID" value="EoIG3R1I4JdyS4L1" />
-      <input id="room" placeholder="Room Name" value="observable-e7b2d4" />
-      <button id="connectBtn">Connect</button>
+    <header id="header" class="header glassmorphism Util_hide">
+      <div id="leftHeader" class="headerSection">
+        <div id="divProfile">
+          <img id="imgProfile" src="https://picsum.photos/24/24" alt="Profile Picture" />
+          <div id="divDetails">
+            <span id="name">Name</span>
+            <span id="status">Status</span>
+          </div>
+        </div>
+        <div id="divControls">
+          <span id="onlineStatus" class="online"></span>
+          <button id="btnSettings">Settings</button>
+          <button id="btnLogout">Logout</button>
+        </div>
+      </div>
+      <div id="rightHeader" class="headerSection Util_hide">
+        <div id="divProfile">
+          <img id="imgProfile" src="https://picsum.photos/24/24" alt="Profile Picture" />
+          <div id="divDetails">
+            <div id="name">Name</div>
+            <div id="status">Status</div>
+          </div>
+        </div>
+        <div id="divControls">
+          <span id="onlineStatus" class="online"></span>
+          <button id="btnSettings">Settings</button>
+          <button id="btnLogout">Logout</button>
+        </div>
+      </div>
+    </header>
+    <!-- Login -->
+    <div id="divLoginContainer" class="divLogins dynamicDiv login glassmorphism">
+      <div class="tab">
+        <button id="loginTab" class="tablinks active">Login</button>
+        <button id="registerTab" class="tablinks">Register</button>
+      </div>
+      <div id="Login" class="tabcontent">
+        <form>
+          <input id="name" type="text" placeholder="Enter your name" name="name" required class="Util_hide">
+          <input id="username" type="text" placeholder="Enter your username" name="username" required value="aquib">
+          <input id="password" type="password" name="password" placeholder="Enter your password" value="password" minlength="8" required disabled>
+          <input id="status" type="text" placeholder="Enter your status" name="status" required class="Util_hide">
+          <button id="login" type="submit">Login</button>
+          <button id="register" type="submit" class="Util_hide">Register</button>
+        </form>
+      </div>
     </div>
-
-    <div class="contacts">
-      <h3>Online Users</h3>
-      <div id="contacts"></div>
+    <!-- Login End -->
+    <!-- Contacts -->
+    <div id="divContactsContainer" class="divContacts dynamicDiv contacts glassmorphism Util_hide">
+      <h2>Contacts</h2>
+      <div id="divContactsList" class="contacts-list">
+        <!-- Contacts will be dynamically added here -->
+      </div>
     </div>
+    <!-- Contacts End -->
   </div>
-
-  <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
 </body>
-
+<script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
 </html>
