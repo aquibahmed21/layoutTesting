@@ -1,100 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <title>Vybrix</title>
-  <script type="module" crossorigin src="/layoutTesting/assets/index-CbhH3qon.js"></script>
-  <link rel="stylesheet" crossorigin href="/layoutTesting/assets/index-CyEfDVcS.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibrix</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #121212; color: #fff; }
+    #videosContainer { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+    video { width: 240px; height: 180px; background: #000; border-radius: 8px; object-fit: cover; }
+    #localVideo { border: 2px solid lime; }
+  </style>
+  <script type="module" crossorigin src="/layoutTesting/assets/index-DLuz9qdg.js"></script>
 </head>
-
 <body>
-  <div id="app">
-    <header id="header" class="header glassmorphism Util_hide">
-      <div id="leftHeader" class="headerSection">
-        <div id="divProfile">
-          <img id="imgProfile" src="https://picsum.photos/24/24" alt="Profile Picture" />
-          <div id="divDetails">
-            <span id="name">Name</span>
-            <span id="status">Status</span>
-          </div>
-        </div>
-        <div id="divControls">
-          <span id="onlineStatus" class="online"></span>
-          <button id="btnSettings">Settings</button>
-          <button id="btnLogout">Logout</button>
-        </div>
-      </div>
-      <div id="rightHeader" class="headerSection Util_hide">
-        <div id="divProfile">
-          <img id="imgProfile" src="https://picsum.photos/24/24" alt="Profile Picture" />
-          <div id="divDetails">
-            <div id="name">Name</div>
-            <div id="status">Status</div>
-          </div>
-        </div>
-        <div id="divControls">
-          <span id="onlineStatus" class="online"></span>
-          <button id="btnSettings">Settings</button>
-          <button id="btnLogout">Logout</button>
-        </div>
-      </div>
-    </header>
-    <!-- Login -->
-    <div id="divLoginContainer" class="divLogins dynamicDiv login glassmorphism">
-      <div class="tab">
-        <button id="loginTab" class="tablinks active">Login</button>
-        <button id="registerTab" class="tablinks">Register</button>
-      </div>
-      <div id="Login" class="tabcontent">
-        <form>
-          <input id="name" type="text" placeholder="Enter your name" name="name" required class="Util_hide">
-          <input id="username" type="text" placeholder="Enter your username" name="username" required value="aquib">
-          <input id="password" type="password" name="password" placeholder="Enter your password" value="password" minlength="8" required disabled>
-          <input id="status" type="text" placeholder="Enter your status" name="status" required class="Util_hide">
-          <button id="login" type="submit">Login</button>
-          <button id="register" type="submit" class="Util_hide">Register</button>
-        </form>
-      </div>
-    </div>
-    <!-- Login End -->
-    <!-- Contacts -->
-    <div id="divContactsContainer" class="divContacts dynamicDiv contacts glassmorphism Util_hide">
-      <div class="searchContainer">
-        <div id="header">
-          <input id="inputSearchContact" type="text" placeholder="Search contacts" />
-          <img id="imgSearchContact" src="https://picsum.photos/28/28" alt="search contact" />
-        </div>
-        <div id="container" class="contacts-list Util_hide">
-          <!-- Contacts will be dynamically added here -->
-          <div class="contact-item">
-            <img class="contact-avatar" src="https://picsum.photos/40/40" alt="Avatar">
-            <div class="contact-details">
-              <div class="contact-name">John Doe</div>
-              <div class="contact-status">Online</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div id="divContactsList" class="contacts-list">
-        <!-- Contacts will be dynamically added here -->
-        <template id="contact-template">
-          <div class="contact-item">
-            <img class="contact-avatar" src="https://picsum.photos/40/40" alt="Avatar">
-            <div class="contact-details">
-              <div class="contact-name"></div>
-              <div class="contact-last-message"></div>
-            </div>
-            <div class="contact-status">
-              <span class="contact-status-dot"></span>
-              <span class="last-seen"></span>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-    <!-- Contacts End -->
-  </div>
-</body>
+
+<h2>Scaledrone WebRTC Group Video Call</h2>
+<button id="startCallBtn" >Start Group Video Call (Owner)</button>
+<button id="joinCallBtn" style="display:none;">Join Call</button>
+
+<div id="videosContainer">
+  <video id="localVideo" autoplay playsinline muted></video>
+</div>
+
+
 <script type='text/javascript' src='https://cdn.scaledrone.com/scaledrone.min.js'></script>
+
+</body>
 </html>
