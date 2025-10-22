@@ -7,6 +7,8 @@ let room;
 let localStream;
 const peerConnections = {}; // key = member.id -> RTCPeerConnection
 
+let handleofferCallback = null;
+
 // --- DOM references ---
 const localVideo = document.getElementById('localVideo');
 const videosContainer = document.getElementById('videosContainer');
@@ -35,10 +37,11 @@ drone.on('open', (error) => {
     switch (message.type) {
       case 'call-started':
         console.log('Incoming group video call!');
-        document.getElementById('joinCallBtn').style.display = 'inline';
+        document.getElementById('joinCallBtn').textContent = 'inline';
         break;
       case 'offer':
-        handleOffer(message.offer, member);
+        // handleOffer(message.offer, member);
+        handleofferCallback = handleOffer.bind(null, message.offer, member);
         break;
       case 'answer':
         handleAnswer(message.answer, member);
@@ -70,6 +73,8 @@ async function startCall() {
 
   // Send offer to any new member joining later
   room.on('member_join', async (member) => {
+    drone.publish({
+      room: ROOM_NAME,  message: { type: 'call-started', from: USER_ID } });
     await createOfferFor(member);
   });
 }
@@ -77,6 +82,9 @@ async function startCall() {
 // --- Participant: join call ---
 async function joinCall() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  if (handleofferCallback) {
+    await handleofferCallback();
+  }
   localVideo.srcObject = localStream;
   localVideo.muted = true;
   document.getElementById('joinCallBtn').style.display = 'none';
