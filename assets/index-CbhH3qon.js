@@ -119,15 +119,29 @@ class DroneService {
       if (error) console.error(MSG_LOGS.ROOM_SUBSCRIPTION_FAILED, error);
     });
     room.on(DroneService.EVENT_MEMBERS, (members) => {
-      this.m_members = members;
+      members.forEach((member) => {
+        this.m_members = this.m_members.filter((m) => m.id !== member.id);
+        member.clientData.state = 1;
+        member.clientData.timestamp = Date.now();
+        member.clientData.lastMessage = "Hello + " + Date.now();
+        this.m_members.push(member);
+      });
       this.m_membersUpdateCallback(this.m_members);
     });
     room.on(DroneService.EVENT_MEMBER_JOIN, (member) => {
+      this.m_members = this.m_members.filter((m) => m.id !== member.id);
+      member.clientData.state = 1;
+      member.clientData.timestamp = Date.now();
+      member.clientData.lastMessage = "Hello + " + Date.now();
       this.m_members.push(member);
       this.m_membersUpdateCallback(this.m_members);
     });
     room.on(DroneService.EVENT_MEMBER_LEAVE, (member) => {
       this.m_members = this.m_members.filter((m) => m.id !== member.id);
+      member.clientData.state = 0;
+      member.clientData.timestamp = Date.now();
+      member.clientData.lastMessage = "Bye + " + Date.now();
+      this.m_members.push(member);
       this.m_membersUpdateCallback(this.m_members);
     });
     room.on(DroneService.EVENT_MESSAGE, this.HandleEventMessage.bind(this));
@@ -196,9 +210,51 @@ class Base {
   get m_divContainer() {
     return this.FindByClass(Base.RootElement, Base.dynamicID);
   }
+  GetDisplayTime(timeSent, includeSeconds = false) {
+    if (timeSent <= 0)
+      return "--";
+    let dateTimeSent = new Date(timeSent);
+    let date = dateTimeSent.getDate();
+    let month = dateTimeSent.getMonth();
+    let day = dateTimeSent.getDay();
+    let dayPart = Base.CALENDAR_DAYS[day];
+    let fullYear = dateTimeSent.getFullYear();
+    let hours = dateTimeSent.getHours();
+    let hour = hours % 12;
+    let am_pm = hours >= 12 ? "pm" : "am";
+    let minutes = dateTimeSent.getMinutes();
+    let seconds = dateTimeSent.getSeconds();
+    let actualTime = ("00" + hour).slice(-2) + ":" + ("00" + minutes).slice(-2);
+    if (includeSeconds) {
+      actualTime += ":" + ("00" + seconds).slice(-2);
+    }
+    let timePart = actualTime + " " + am_pm;
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let monthName = monthNames[month];
+    let dayMonthPart = ("00" + date).slice(-2) + "-" + monthName;
+    let today = /* @__PURE__ */ new Date();
+    let todayFullYear = today.getFullYear();
+    let todayMonth = today.getMonth();
+    let todayDate = today.getDate();
+    let todayDay = today.getDay();
+    let time = date > todayDate ? date - todayDate : todayDate - date;
+    if (fullYear == todayFullYear && month == todayMonth && date == todayDate)
+      return timePart;
+    if (fullYear == todayFullYear && month == todayMonth && todayDate - date == 1)
+      return "Y'day, " + timePart;
+    if (fullYear == todayFullYear && month == todayMonth && day != todayDay && time <= 7)
+      return dayMonthPart + ", " + dayPart + ", " + timePart;
+    if (fullYear == todayFullYear && month == todayMonth && date == todayDate)
+      return timePart;
+    if (fullYear == todayFullYear)
+      return dayMonthPart + ", " + timePart;
+    dayMonthPart += "-" + fullYear;
+    return dayMonthPart + ", " + timePart;
+  }
   static dynamicID = "";
   static RootElement;
   m_droneService = null;
+  static CALENDAR_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thur", "Fri", "Sat"];
 }
 class Contacts extends Base {
   constructor(drone) {
@@ -216,13 +272,27 @@ class Contacts extends Base {
     if (!credentials)
       return;
     const { id: selfID, username: selfUsername } = credentials;
+    const contactList = this.FindByID(this.m_divContainer, "divContactsList");
     members.forEach((member) => {
       if (member.clientData) {
-        const { name, status, id, username } = member.clientData;
-        console.log({ name, status, id, username });
+        const { name, status, id, username, state, timestamp, lastMessage, profileID } = member.clientData;
+        console.log({ name, status, id, username, state, timestamp, lastMessage, profileID });
         if (id === selfID && username === selfUsername) {
           this.FindByID(this.m_header, "name").textContent = name;
           this.FindByID(this.m_header, "status").textContent = status;
+        } else {
+          const rowID = `contact-row-${id}`;
+          let child = this.FindByID(contactList, rowID);
+          if (!child) {
+            const template = this.GetElementByID("contact-template");
+            child = template.content.cloneNode(true).children[0];
+            contactList.appendChild(child);
+            child.id = rowID;
+          }
+          this.FindByClass(child, "contact-name").textContent = name;
+          this.FindByClass(child, "last-seen").textContent = "Last seen: " + this.GetDisplayTime(timestamp);
+          this.FindByClass(child, "contact-last-message").textContent = lastMessage;
+          this.FindByClass(child, "contact-status-dot").classList.add(state === 1 ? "online" : "offline");
         }
       }
     });
