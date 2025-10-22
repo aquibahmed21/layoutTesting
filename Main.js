@@ -5,8 +5,7 @@ const USER_ID = Math.floor(Math.random() * 10000);
 let drone;
 let room;
 let localStream;
-const peerConnections = {}; // key = member.id -> RTCPeerConnection
-
+const peerConnections = {}; // { memberId: RTCPeerConnection }
 let handleofferCallback = null;
 
 // --- DOM references ---
@@ -26,8 +25,19 @@ drone.on('open', (error) => {
   room = drone.subscribe(ROOM_NAME);
   room.on('open', (error) => { if (error) console.error(error); });
 
-  room.on('members', (members) => {
+  // Handle existing and new members
+  room.on('members', async (members) => {
     console.log('Online members:', members);
+  });
+
+  room.on('member_leave', (member) => {
+    console.log('Member left:', member.id);
+    if (peerConnections[member.id]) {
+      peerConnections[member.id].close();
+      delete peerConnections[member.id];
+    }
+    const video = document.getElementById(`video-${member.id}`);
+    if (video) video.remove();
   });
 
   // Listen for signalling messages
@@ -36,18 +46,20 @@ drone.on('open', (error) => {
 
     switch (message.type) {
       case 'call-started':
-        console.log('Incoming group video call!');
-        document.getElementById('joinCallBtn').textContent = 'inline';
+        console.log('Group video call started!');
+        document.getElementById('joinCallBtn').style.display = 'inline';
         break;
       case 'offer':
-        // handleOffer(message.offer, member);
-        handleofferCallback = handleOffer.bind(null, message.offer, member);
+        if (message.to === drone.clientId)
+          handleofferCallback = handleOffer.bind(null, message.offer, member);
         break;
       case 'answer':
-        handleAnswer(message.answer, member);
+        if (message.to === drone.clientId)
+          handleAnswer(message.answer, member);
         break;
       case 'ice-candidate':
-        handleNewICECandidate(message.candidate, member);
+        if (message.to === drone.clientId)
+          handleNewICECandidate(message.candidate, member);
         break;
     }
   });
@@ -55,59 +67,60 @@ drone.on('open', (error) => {
 
 // --- Owner: start call ---
 async function startCall() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  localVideo.srcObject = localStream;
-  localVideo.muted = true;
+  await initLocalVideo();
   document.getElementById('startCallBtn').disabled = true;
 
+  // Broadcast "call-started"
   drone.publish({
-        room: ROOM_NAME,  message: { type: 'call-started', from: USER_ID } });
-
-  // Send offers to all existing members
-  room.on('members', async (members) => {
-    for (const m of members) {
-      if (m.id === drone.clientId) continue;
-      await createOfferFor(m);
-    }
-  });
-
-  // Send offer to any new member joining later
-  room.on('member_join', async (member) => {
-    drone.publish({
-      room: ROOM_NAME,  message: { type: 'call-started', from: USER_ID } });
-    await createOfferFor(member);
+    room: ROOM_NAME,
+    message: { type: 'call-started', from: USER_ID }
   });
 }
 
 // --- Participant: join call ---
 async function joinCall() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  await initLocalVideo();
   if (handleofferCallback) {
     await handleofferCallback();
   }
-  localVideo.srcObject = localStream;
-  localVideo.muted = true;
   document.getElementById('joinCallBtn').style.display = 'none';
 
-  room.on('members', async (members) => {
-    for (const m of members) {
-      if (m.id === drone.clientId) continue;
-      await createOfferFor(m);
+  const members = room.members || [];
+  for (const m of members) {
+    if (m.id === drone.clientId) continue;
+    await createOfferFor(m);
+  }
+
+  // Handle future joins
+  room.on('member_join', async (member) => {
+    if (member.id !== drone.clientId) {
+      await createOfferFor(member);
     }
   });
 }
 
-// --- Peer Connection helpers ---
+// --- Initialize local camera ---
+async function initLocalVideo() {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  localVideo.srcObject = localStream;
+  localVideo.muted = true;
+}
+
+// --- Create and send offer ---
 async function createOfferFor(member) {
   const pc = createPeerConnection(member.id);
   peerConnections[member.id] = pc;
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
+
   drone.publish({
-        room: ROOM_NAME,  message: { type: 'offer', offer, to: member.id, from: USER_ID } });
+    room: ROOM_NAME,
+    message: { type: 'offer', offer, to: member.id, from: drone.clientId }
+  });
 }
 
+// --- Create peer connection ---
 function createPeerConnection(memberId) {
   const pc = new RTCPeerConnection({
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -116,19 +129,28 @@ function createPeerConnection(memberId) {
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   pc.ontrack = (event) => {
-    const video = document.createElement('video');
+    let video = document.getElementById(`video-${memberId}`);
+    if (!video) {
+      video = document.createElement('video');
+      video.id = `video-${memberId}`;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.className = 'remoteVideo';
+      videosContainer.appendChild(video);
+    }
     video.srcObject = event.streams[0];
-    video.autoplay = true;
-    video.playsInline = true;
-    video.className = 'remoteVideo';
-    videosContainer.appendChild(video);
   };
 
   pc.onicecandidate = (event) => {
     if (event.candidate) {
       drone.publish({
         room: ROOM_NAME,
-        message: { type: 'ice-candidate', candidate: event.candidate, to: memberId }
+        message: {
+          type: 'ice-candidate',
+          candidate: event.candidate,
+          to: memberId,
+          from: drone.clientId
+        }
       });
     }
   };
@@ -136,7 +158,7 @@ function createPeerConnection(memberId) {
   return pc;
 }
 
-// --- Incoming signals ---
+// --- Handle offer ---
 async function handleOffer(offer, member) {
   const pc = createPeerConnection(member.id);
   peerConnections[member.id] = pc;
@@ -146,16 +168,18 @@ async function handleOffer(offer, member) {
   await pc.setLocalDescription(answer);
 
   drone.publish({
-        room: ROOM_NAME,
-    message: { type: 'answer', answer, to: member.id, from: USER_ID }
+    room: ROOM_NAME,
+    message: { type: 'answer', answer, to: member.id, from: drone.clientId }
   });
 }
 
+// --- Handle answer ---
 async function handleAnswer(answer, member) {
   const pc = peerConnections[member.id];
   if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
 }
 
+// --- Handle ICE candidate ---
 async function handleNewICECandidate(candidate, member) {
   const pc = peerConnections[member.id];
   if (pc) {
