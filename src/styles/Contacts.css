@@ -1,0 +1,110 @@
+/* Contacts container */
+#divContactsContainer {
+  width: 350px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #f0f2f940;
+  flex: 1;
+}
+
+/* Search container */
+.searchContainer {
+  padding: 10px;
+  border-bottom: 1px solid #f0f2f940;
+}
+
+#header
+{
+  display: flex;
+  column-gap: 8px;
+}
+
+#inputSearchContact {
+  width: 100%;
+  padding: 8px 35px 8px 15px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background-color: #f0f2f9;
+  color: #333;
+  position: relative;
+}
+
+#imgSearchContact {
+  cursor: pointer;
+}
+
+/* Contacts list */
+.contacts-list {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f2f91a;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.contact-item:hover {
+  background-color: #f0f2f940;
+}
+
+.contact-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.contact-details {
+  flex-grow: 1;
+}
+
+.contact-name {
+  font-weight: bold;
+  color: #fff;
+}
+
+.contact-last-message {
+  color: #aaa;
+  font-size: 0.9em;
+}
+
+.contact-status {
+  display: flex;
+  align-items: flex-end;
+  font-size: 0.8em;
+  color: #aaa;
+  flex-direction: column;
+  height: 100%;
+  row-gap: 10px;
+  justify-content: flex-start;
+}
+
+.contact-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
+.contact-status-dot.online {
+  background-color: #25d366;
+}
+
+.contact-status-dot.offline {
+  background-color: #ccc;
+}
+
+.contact-status-dot.online + .last-seen {
+  visibility: hidden;
+}
+
+.last-seen {
+  margin-left: auto;
+  opacity: 0.75;
+}

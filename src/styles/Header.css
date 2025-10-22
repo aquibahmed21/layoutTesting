@@ -9,6 +9,7 @@
   border-bottom: 1px solid #f0f2f940;
   column-gap: 8px;
   height: 48px;
+  overflow: hidden;
 }
 
 #divProfile

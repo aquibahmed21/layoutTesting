@@ -53,17 +53,32 @@ export class DroneService
     });
 
     room.on(DroneService.EVENT_MEMBERS, (members: Member[]) => {
-      this.m_members = members;
+      members.forEach((member: Member) => {
+        this.m_members = this.m_members.filter((m) => m.id !== member.id);
+        member.clientData.state = 1;
+        member.clientData.timestamp = Date.now(); 
+        member.clientData.lastMessage = "Hello + " + Date.now();
+        this.m_members.push(member);
+      });
       this.m_membersUpdateCallback(this.m_members);
     });
 
     room.on(DroneService.EVENT_MEMBER_JOIN, (member: Member) => {
+      this.m_members = this.m_members.filter((m) => m.id !== member.id);
+      member.clientData.state = 1;
+      member.clientData.timestamp = Date.now();
+      member.clientData.lastMessage = "Hello + " + Date.now();
+
       this.m_members.push(member);
       this.m_membersUpdateCallback(this.m_members);
     });
 
     room.on(DroneService.EVENT_MEMBER_LEAVE, (member: Member) => {
       this.m_members = this.m_members.filter((m) => m.id !== member.id);
+      member.clientData.state = 0;
+      member.clientData.timestamp = Date.now();
+      member.clientData.lastMessage = "Bye + " + Date.now();
+      this.m_members.push(member);
       this.m_membersUpdateCallback(this.m_members);
     });
 

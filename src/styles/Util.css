@@ -27,6 +27,17 @@ body, html {
   -webkit-backdrop-filter: blur(10px);
   border-radius: 10px;
   background: transparent;
-  border: 1px solid #f0f2f940;
+  /* border: 1px solid #f0f2f940; */
   overflow: auto;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.dynamicDiv {
+  height: calc(100vh - 50px);
+  border-radius: unset;
 }

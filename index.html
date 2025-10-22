@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/src/styles/Util.css" />
   <link rel="stylesheet" href="/src/styles/Header.css" />
   <link rel="stylesheet" href="/src/styles/login.css" />
+  <link rel="stylesheet" href="/src/styles/Contacts.css" />
 </head>
 
 <body>
@@ -61,9 +62,37 @@
     <!-- Login End -->
     <!-- Contacts -->
     <div id="divContactsContainer" class="divContacts dynamicDiv contacts glassmorphism Util_hide">
-      <h2>Contacts</h2>
+      <div class="searchContainer">
+        <div id="header">
+          <input id="inputSearchContact" type="text" placeholder="Search contacts" />
+          <img id="imgSearchContact" src="https://picsum.photos/28/28" alt="search contact" />
+        </div>
+        <div id="container" class="contacts-list Util_hide">
+          <!-- Contacts will be dynamically added here -->
+          <div class="contact-item">
+            <img class="contact-avatar" src="https://picsum.photos/40/40" alt="Avatar">
+            <div class="contact-details">
+              <div class="contact-name">John Doe</div>
+              <div class="contact-status">Online</div>
+            </div>
+          </div>
+        </div>
+      </div>
       <div id="divContactsList" class="contacts-list">
         <!-- Contacts will be dynamically added here -->
+        <template id="contact-template">
+          <div class="contact-item">
+            <img class="contact-avatar" src="https://picsum.photos/40/40" alt="Avatar">
+            <div class="contact-details">
+              <div class="contact-name"></div>
+              <div class="contact-last-message"></div>
+            </div>
+            <div class="contact-status">
+              <span class="contact-status-dot"></span>
+              <span class="last-seen"></span>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
     <!-- Contacts End -->

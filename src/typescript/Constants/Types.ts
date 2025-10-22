@@ -1,7 +1,19 @@
 export interface Member
 {
   id: string;
-  clientData?: any;
+  clientData: ClientData;
+}
+
+export interface ClientData
+{
+  name: string;
+  status: string;
+  username: string;
+  id: string;
+  state: 0 | 1;
+  timestamp: number;
+  lastMessage: string;
+  profileID: string;
 }
 
 export interface ScaleDrone

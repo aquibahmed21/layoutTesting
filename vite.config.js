@@ -14,5 +14,9 @@ export default defineConfig({
   //   minify: 'terser', // Use terser for minification (default is esbuild)
   //   sourcemap: true, // Generate sourcemaps for debugging
   // },
-  base: "/layoutTesting"
+  base: "/layoutTesting",
+  build: {
+    minify: false,
+    cssMinify: false
+  },
 });
