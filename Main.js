@@ -94,6 +94,11 @@ async function joinCall() {
   // Handle future joins
   room.on('member_join', async (member) => {
     if (member.id !== drone.clientId) {
+      // Broadcast "call-started"
+      drone.publish({
+        room: ROOM_NAME,
+        message: { type: 'call-started', from: USER_ID }
+      });
       await createOfferFor(member);
     }
   });
