@@ -33,30 +33,44 @@ const USER_ID = Math.floor(Math.random() * 1e4);
 let drone;
 let room;
 let localStream;
+let memberslist = [];
+let hasOwnerStartedTheCall = false;
 const peerConnections = {};
-let handleofferCallback = null;
+const handleOfferCallbacks = /* @__PURE__ */ new Map();
 const localVideo = document.getElementById("localVideo");
 const videosContainer = document.getElementById("videosContainer");
+const pendingCandidates = {};
 document.getElementById("startCallBtn").addEventListener("click", startCall);
 document.getElementById("joinCallBtn").addEventListener("click", joinCall);
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
 drone.on("open", (error) => {
   if (error) return console.error(error);
+  document.getElementById("selfid").innerText = drone.clientId;
   room = drone.subscribe(ROOM_NAME);
   room.on("open", (error2) => {
     if (error2) console.error(error2);
   });
   room.on("members", async (members) => {
-    console.log("Online members:", members);
+    memberslist = members.filter((member) => member.id !== drone.clientId);
   });
   room.on("member_leave", (member) => {
-    console.log("Member left:", member.id);
+    memberslist = memberslist.filter((m) => m.id !== member.id);
     if (peerConnections[member.id]) {
       peerConnections[member.id].close();
       delete peerConnections[member.id];
     }
     const video = document.getElementById(`video-${member.id}`);
     if (video) video.remove();
+  });
+  room.on("member_join", async (member) => {
+    memberslist.push(member);
+    if (hasOwnerStartedTheCall && member.id !== drone.clientId) {
+      drone.publish({
+        room: ROOM_NAME,
+        message: { type: "call-started", from: USER_ID }
+      });
+      await createOfferFor(member);
+    }
   });
   room.on("data", (message, member) => {
     if (!member || member.id === drone.clientId) return;
@@ -66,8 +80,9 @@ drone.on("open", (error) => {
         document.getElementById("joinCallBtn").style.display = "inline";
         break;
       case "offer":
+        console.log({ message, member });
         if (message.to === drone.clientId)
-          handleofferCallback = handleOffer.bind(null, message.offer, member);
+          handleOfferCallbacks.set(drone.clientId, handleOffer.bind(null, message.offer, member, message.from));
         break;
       case "answer":
         if (message.to === drone.clientId)
@@ -81,38 +96,32 @@ drone.on("open", (error) => {
   });
 });
 async function startCall() {
-  await initLocalVideo();
   document.getElementById("startCallBtn").disabled = true;
+  hasOwnerStartedTheCall = true;
+  await initLocalVideo();
   drone.publish({
     room: ROOM_NAME,
     message: { type: "call-started", from: USER_ID }
   });
+  for (const member of memberslist)
+    await createOfferFor(member);
 }
 async function joinCall() {
-  await initLocalVideo();
-  if (handleofferCallback) {
-    await handleofferCallback();
+  const handleOfferCallback = handleOfferCallbacks.get(drone.clientId);
+  if (!handleOfferCallback) {
+    console.error("refresh and join again, callback not found");
+    return;
   }
   document.getElementById("joinCallBtn").style.display = "none";
-  const members = room.members || [];
-  for (const m of members) {
-    if (m.id === drone.clientId) continue;
-    await createOfferFor(m);
-  }
-  room.on("member_join", async (member) => {
-    if (member.id !== drone.clientId) {
-      drone.publish({
-        room: ROOM_NAME,
-        message: { type: "call-started", from: USER_ID }
-      });
-      await createOfferFor(member);
-    }
-  });
+  await initLocalVideo();
+  await handleOfferCallback();
+  handleOfferCallbacks.delete(drone.clientId);
 }
 async function initLocalVideo() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   localVideo.srcObject = localStream;
   localVideo.muted = true;
+  localVideo.style.display = "";
 }
 async function createOfferFor(member) {
   const pc = createPeerConnection(member.id);
@@ -137,7 +146,7 @@ function createPeerConnection(memberId) {
       video.autoplay = true;
       video.playsInline = true;
       video.className = "remoteVideo";
-      videosContainer.appendChild(video);
+      videosContainer.prepend(video);
     }
     video.srcObject = event.streams[0];
   };
@@ -156,7 +165,7 @@ function createPeerConnection(memberId) {
   };
   return pc;
 }
-async function handleOffer(offer, member) {
+async function handleOffer(offer, member, callerID) {
   const pc = createPeerConnection(member.id);
   peerConnections[member.id] = pc;
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -166,18 +175,49 @@ async function handleOffer(offer, member) {
     room: ROOM_NAME,
     message: { type: "answer", answer, to: member.id, from: drone.clientId }
   });
+  if (pendingCandidates[member.id]) {
+    for (const candidate of pendingCandidates[member.id]) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch (e) {
+        console.error("Error adding queued ICE candidate:", e);
+      }
+    }
+    delete pendingCandidates[member.id];
+  }
 }
 async function handleAnswer(answer, member) {
   const pc = peerConnections[member.id];
   if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
+  if (pendingCandidates[member.id]) {
+    for (const candidate of pendingCandidates[member.id]) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch (e) {
+        console.error("Error adding queued ICE candidate:", e);
+      }
+    }
+    delete pendingCandidates[member.id];
+  }
 }
 async function handleNewICECandidate(candidate, member) {
   const pc = peerConnections[member.id];
-  if (pc) {
-    try {
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (e) {
-      console.error("Error adding ICE candidate:", e);
-    }
+  const ice = new RTCIceCandidate(candidate);
+  if (!pc) {
+    console.warn("Peer connection not ready yet, queueing candidate");
+    pendingCandidates[member.id] = pendingCandidates[member.id] || [];
+    pendingCandidates[member.id].push(ice);
+    return;
+  }
+  if (!pc.remoteDescription) {
+    console.warn("Remote description not set yet, queueing candidate");
+    pendingCandidates[member.id] = pendingCandidates[member.id] || [];
+    pendingCandidates[member.id].push(ice);
+    return;
+  }
+  try {
+    await pc.addIceCandidate(ice);
+  } catch (e) {
+    console.error("Error adding ICE candidate:", e);
   }
 }
