@@ -23,6 +23,7 @@ const pendingCandidates = {}; // { memberId: RTCIceCandidate[] }
 document.getElementById('startCallBtn').addEventListener('click', startCall);
 document.getElementById('joinCallBtn').addEventListener('click', joinCall);
 
+
 // --- Connect to Scaledrone ---
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
 
@@ -68,12 +69,11 @@ drone.on('open', (error) => {
       case 'call-started':
         console.log('Group video call started!');
         document.getElementById('joinCallBtn').style.display = 'inline';
-
+        document.getElementById('startCallBtn').style.display = 'none';
         break;
       case 'offer':
         // if (message.to === drone.clientId)
         //   handleofferCallback = handleOffer.bind(null, message.offer, member);
-        console.log({message, member})
         if (message.to === drone.clientId)
           handleOfferCallbacks.set(drone.clientId, handleOffer.bind(null, message.offer, member, message.from));
         break;
@@ -84,6 +84,18 @@ drone.on('open', (error) => {
       case 'ice-candidate':
         if (message.to === drone.clientId)
           handleNewICECandidate(message.candidate, member);
+        break;
+      case 'connected':
+        if (message.to === drone.clientId)
+          handleConnected(member);
+        break;
+      case 'connected-with':
+        if (message.to === drone.clientId)
+          handleConnectedWith(member, message.connectwithOthers);
+        break;
+      case 'offer-direct':
+        if (message.to === drone.clientId)
+          handleOffer(message.offer, member);
         break;
     }
   });
@@ -110,8 +122,7 @@ async function startCall() {
 // --- Participant: join call ---
 async function joinCall() {
   const handleOfferCallback = handleOfferCallbacks.get(drone.clientId);
-  if (!handleOfferCallback)
-  {
+  if (!handleOfferCallback) {
     console.error("refresh and join again, callback not found");
     return;
   }
@@ -124,35 +135,69 @@ async function joinCall() {
 
 // --- Initialize local camera ---
 async function initLocalVideo() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
   localVideo.srcObject = localStream;
   localVideo.muted = true;
   localVideo.style.display = "";
 }
 
 // --- Create and send offer ---
-async function createOfferFor(member) {
+async function createOfferFor(member, isDirectConnect = false) {
   const pc = createPeerConnection(member.id);
   peerConnections[member.id] = pc;
 
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
 
-  drone.publish({
-    room: ROOM_NAME,
-    message: { type: 'offer', offer, to: member.id, from: drone.clientId }
-  });
+  if (isDirectConnect)
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: 'offer-direct', offer, to: member.id, from: drone.clientId }
+    });
+  else
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: 'offer', offer, to: member.id, from: drone.clientId }
+    });
 }
 
 // --- Create peer connection ---
 function createPeerConnection(memberId) {
   const pc = new RTCPeerConnection({
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      {
+        url: 'turn:numb.viagenie.ca',
+        credential: 'muazkh',
+        username: 'webrtc@live.com'
+      },
+      {
+        url: 'turn:192.158.29.39:3478?transport=udp',
+        credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+        username: '28224511:1379330808'
+      },
+      {
+        url: 'turn:192.158.29.39:3478?transport=tcp',
+        credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+        username: '28224511:1379330808'
+      },
+      {
+        url: 'turn:turn.bistri.com:80',
+        credential: 'homeo',
+        username: 'homeo'
+      },
+      {
+        url: 'turn:turn.anyfirewall.com:443?transport=tcp',
+        credential: 'webrtc',
+        username: 'webrtc'
+      }]
   });
 
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   pc.ontrack = (event) => {
+    membersInCall.push(memberId);
+
     let video = document.getElementById(`video-${memberId}`);
     if (!video) {
       video = document.createElement('video');
@@ -161,7 +206,6 @@ function createPeerConnection(memberId) {
       video.playsInline = true;
       video.className = 'remoteVideo';
       videosContainer.prepend(video);
-      membersInCall.push(memberId);
     }
     video.srcObject = event.streams[0];
   };
@@ -197,7 +241,7 @@ async function handleOffer(offer, member, callerID) {
     message: { type: 'answer', answer, to: member.id, from: drone.clientId }
   });
 
-    // Apply any ICE candidates that arrived before we were ready
+  // Apply any ICE candidates that arrived before we were ready
   if (pendingCandidates[member.id]) {
     for (const candidate of pendingCandidates[member.id]) {
       try {
@@ -209,11 +253,25 @@ async function handleOffer(offer, member, callerID) {
     delete pendingCandidates[member.id];
   }
 
+
   // ! handle pending to connect with each other
-  //   for (const m of memberslist) {
-  //   if ([drone.clientId, callerID, ...membersInCall].includes(m.id)) continue;
+  // for (const m of memberslist)
+  // {
+  //   if ([drone.clientId, callerID, ...membersInCall].includes(m.id))
+  //   {
+  //     console.log("skip: " + m.id);
+  //     continue;
+  //   }
+  //   console.log("connect: " + m.id);
   //   await createOfferFor(m);
   // }
+
+  if (callerID) {
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: 'connected', answer, to: member.id, from: drone.clientId }
+    });
+  }
 }
 
 // --- Handle answer ---
@@ -257,5 +315,27 @@ async function handleNewICECandidate(candidate, member) {
     await pc.addIceCandidate(ice);
   } catch (e) {
     console.error('Error adding ICE candidate:', e);
+  }
+}
+
+// --- Handle connected ---
+function handleConnected(member) {
+  setTimeout(() => {
+    const connectwithOthers = membersInCall.filter((m) => m !== member.id && m !== drone.clientId);
+    if (connectwithOthers.length === 0) return;
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: 'connected-with', to: member.id, from: drone.clientId, connectwithOthers }
+    });
+  }, 2000);
+}
+
+// --- Handle connected-with ---
+function handleConnectedWith(member, connectwithOthers) {
+  for (const m of connectwithOthers) {
+    const member = memberslist.find(e => e.id == m);
+    if (!member)
+      continue;
+    createOfferFor(member, true);
   }
 }
