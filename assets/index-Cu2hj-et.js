@@ -131,7 +131,7 @@ async function joinCall() {
   handleOfferCallbacks.delete(drone.clientId);
 }
 async function initLocalVideo() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   localVideo.srcObject = localStream;
   localVideo.muted = true;
   localVideo.style.display = "";
