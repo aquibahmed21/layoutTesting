@@ -19,10 +19,13 @@ const videosContainer = document.getElementById('videosContainer');
 // Store ICE candidates that arrive early
 const pendingCandidates = {}; // { memberId: RTCIceCandidate[] }
 
+// QueryAll();
+
+
 // --- Button listeners ---
 document.getElementById('startCallBtn').addEventListener('click', startCall);
 document.getElementById('joinCallBtn').addEventListener('click', joinCall);
-
+// document.getElementById('divPermission').addEventListener('click', (e) =>requestPermission(e.target.id));
 
 // --- Connect to Scaledrone ---
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
@@ -135,7 +138,7 @@ async function joinCall() {
 
 // --- Initialize local camera ---
 async function initLocalVideo() {
-  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   localVideo.srcObject = localStream;
   localVideo.muted = true;
   localVideo.style.display = "";
@@ -253,19 +256,6 @@ async function handleOffer(offer, member, callerID) {
     delete pendingCandidates[member.id];
   }
 
-
-  // ! handle pending to connect with each other
-  // for (const m of memberslist)
-  // {
-  //   if ([drone.clientId, callerID, ...membersInCall].includes(m.id))
-  //   {
-  //     console.log("skip: " + m.id);
-  //     continue;
-  //   }
-  //   console.log("connect: " + m.id);
-  //   await createOfferFor(m);
-  // }
-
   if (callerID) {
     drone.publish({
       room: ROOM_NAME,
@@ -338,4 +328,42 @@ function handleConnectedWith(member, connectwithOthers) {
       continue;
     createOfferFor(member, true);
   }
+}
+
+async function queryPermission(type) {
+  try {
+    const permission = await navigator.permissions.query({ name: type });
+    return permission.state === 'granted';
+  } catch (error) {
+    console.error(`Error querying permission for ${type}`, error);
+    return null;
+  }
+}
+
+async function QueryAll() {
+  const [camera, mic] = await Promise.all([
+    queryPermission("camera"),
+    queryPermission("microphone")
+  ]);
+  console.log({ camera, mic });
+}
+
+async function requestPermission(type = "camera" | "microphone" | "all") {
+  let stream = null;
+  document.getElementById(type).disabled = true;
+  switch (type) {
+    case "camera":
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+      break;
+    case "microphone":
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      break;
+    default:
+      console.error(`Unknown permission type: ${type}`);
+      break;
+  }
+  const isGranted = await queryPermission(type);
+  document.getElementById(type).style.display = isGranted ? "none": "";
+  document.getElementById(type).disabled = false;
 }
