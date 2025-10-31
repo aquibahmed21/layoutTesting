@@ -70,13 +70,14 @@ drone.on('open', (error) => {
 
     switch (message.type) {
       case 'call-started':
-        console.log('Group video call started!');
+        console.log('Group video call started! by: ' + message.from);
         document.getElementById('joinCallBtn').style.display = 'inline';
         document.getElementById('startCallBtn').style.display = 'none';
         break;
       case 'offer':
         // if (message.to === drone.clientId)
         //   handleofferCallback = handleOffer.bind(null, message.offer, member);
+        console.log('Offer received from: ' + message.from);
         if (message.to === drone.clientId)
           handleOfferCallbacks.set(drone.clientId, handleOffer.bind(null, message.offer, member, message.from));
         break;
@@ -89,14 +90,17 @@ drone.on('open', (error) => {
           handleNewICECandidate(message.candidate, member);
         break;
       case 'connected':
+        console.log('Connected to: ' + message.from);
         if (message.to === drone.clientId)
           handleConnected(member);
         break;
       case 'connected-with':
+        console.log('Connected with: ' + message.from);
         if (message.to === drone.clientId)
           handleConnectedWith(member, message.connectwithOthers);
         break;
       case 'offer-direct':
+        console.log('Direct offer received from: ' + message.from);
         if (message.to === drone.clientId)
           handleOffer(message.offer, member);
         break;
