@@ -133,14 +133,18 @@ async function startCall() {
 
 // --- Participant: join call ---
 async function joinCall() {
+  await initLocalVideo();
   const handleOfferCallback = handleOfferCallbacks.get(drone.clientId);
   if (!handleOfferCallback) {
     console.error("refresh and join again, callback not found");
+    localStream.getTracks().forEach(track => track.stop());
+    localVideo.srcObject = null;
+    localVideo.muted = true;
+    localVideo.style.display = "none";
     return;
   }
   document.getElementById('joinCallBtn').style.display = 'none';
 
-  await initLocalVideo();
   await handleOfferCallback();
   handleOfferCallbacks.delete(drone.clientId);
 }
