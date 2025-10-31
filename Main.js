@@ -1,5 +1,5 @@
 const SCALEDRONE_CHANNEL_ID = 'EoIG3R1I4JdyS4L1';
-const ROOM_NAME = 'observable-room';
+const ROOM_NAME = 'observable-room1234516';
 const USER_ID = Math.floor(Math.random() * 10000);
 
 let drone;
@@ -52,13 +52,15 @@ drone.on('open', (error) => {
   });
 
   room.on('member_join', async (member) => {
-    memberslist.push(member);
+    const index = memberslist.findIndex((m) => m.id === member.id);
+    if (index !== -1) memberslist[index] = member;
+    else memberslist.push(member);
 
     if (hasOwnerStartedTheCall && member.id !== drone.clientId) {
       // Broadcast "call-started"
       drone.publish({
         room: ROOM_NAME,
-        message: { type: 'call-started', from: USER_ID }
+        message: { type: 'call-started', from: USER_ID, to: member.id }
       });
       await createOfferFor(member);
     }
@@ -70,9 +72,12 @@ drone.on('open', (error) => {
 
     switch (message.type) {
       case 'call-started':
-        console.log('Group video call started! by: ' + message.from);
-        document.getElementById('joinCallBtn').style.display = 'inline';
-        document.getElementById('startCallBtn').style.display = 'none';
+        if (message.to === drone.clientId || message.to === undefined)
+        {
+          console.log('Group video call started! by: ' + message.from);
+          document.getElementById('joinCallBtn').style.display = 'inline';
+          document.getElementById('startCallBtn').style.display = 'none';
+        }
         break;
       case 'offer':
         // if (message.to === drone.clientId)
@@ -314,14 +319,15 @@ async function handleNewICECandidate(candidate, member) {
 
 // --- Handle connected ---
 function handleConnected(member) {
-  setTimeout(() => {
-    const connectwithOthers = membersInCall.filter((m) => m !== member.id && m !== drone.clientId);
+  // setTimeout(() => {
+    let connectwithOthers = membersInCall.filter((m) => m !== member.id && m !== drone.clientId);
     if (connectwithOthers.length === 0) return;
+    connectwithOthers = Array.from(new Set(connectwithOthers));
     drone.publish({
       room: ROOM_NAME,
       message: { type: 'connected-with', to: member.id, from: drone.clientId, connectwithOthers }
     });
-  }, 2000);
+  // }, 2000);
 }
 
 // --- Handle connected-with ---
