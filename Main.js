@@ -2,6 +2,7 @@ const SCALEDRONE_CHANNEL_ID = 'EoIG3R1I4JdyS4L1';
 const ROOM_NAME = 'observable-room1234516';
 const USER_ID = Math.floor(Math.random() * 10000);
 
+
 let drone;
 let room;
 let localStream;
@@ -10,12 +11,13 @@ let membersInCall = [];
 let hasOwnerStartedTheCall = false;
 let peerConnections = {}; // { memberId: RTCPeerConnection }
 let handleOfferCallbacks = new Map(); // { memberId: (offer, member) => void }
+let callerID = "";
+let isCallActive = false;
 
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 const vibrate = (pattern) => {
   if (isMobileDevice)
     navigator.vibrate(pattern);
-  generateBeepSound();
 };
 
 
@@ -37,7 +39,6 @@ document.getElementById('startCallBtn').addEventListener('click', startCall);
 document.getElementById('joinCallBtn').addEventListener('click', joinCall);
 document.getElementById('permission').addEventListener('click', (e) => requestPermission("all"));
 document.getElementById('hangup').addEventListener('click', hangup);
-document.querySelector("body").addEventListener('click', generateBeepSound);
 
 // --- Connect to Scaledrone ---
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
@@ -46,19 +47,25 @@ drone.on('open', (error) => {
   if (error) return console.error(error);
   document.getElementById("selfid").innerText = drone.clientId;
   room = drone.subscribe(ROOM_NAME);
-  room.on('open', (error) => { if (error) console.error(error); ShowUserMessage("Connected to room"); });
+  room.on('open', (error) => { if (error) console.error(error); });
 
   // Handle existing and new members
   room.on('members', async (members) => {
     memberslist = members.filter(member => member.id !== drone.clientId);
-    ShowUserMessage("Connected to room with " + memberslist.length + " members");
   });
 
   room.on('member_leave', (member) => {
     memberslist = memberslist.filter((m) => m.id !== member.id);
+    if (callerID === member.id)
+    {
+      callerID = "";
+      document.getElementById('joinCallBtn').style.display = 'none';
+      document.getElementById('startCallBtn').style.display = '';
+      ShowUserMessage("Owner of the call left: " + member.id);
+    }
+    else
+      ShowUserMessage("Member left: " + member.id);
     handleHangup(member.id);
-    ShowUserMessage("Member left: " + member.id);
-    vibrate(100);
   });
 
   room.on('member_join', async (member) => {
@@ -70,7 +77,7 @@ drone.on('open', (error) => {
       // Broadcast "call-started"
       drone.publish({
         room: ROOM_NAME,
-        message: { type: 'call-started', from: drone.clientId, to: member.id }
+        message: { type: 'call-started', from: drone.clientId, to: member.id, callerID: drone.clientId }
       });
       await createOfferFor(member);
     }
@@ -86,6 +93,7 @@ drone.on('open', (error) => {
           console.log('Group video call started! by: ' + message.from);
           document.getElementById('joinCallBtn').style.display = 'inline';
           document.getElementById('startCallBtn').style.display = 'none';
+          callerID = message.callerID || message.from;
           ShowUserMessage("Group video call started! by: " + message.from);
           vibrate([100, 50, 100]);
         }
@@ -93,7 +101,6 @@ drone.on('open', (error) => {
       case 'offer':
         // if (message.to === drone.clientId)
         //   handleofferCallback = handleOffer.bind(null, message.offer, member);
-        console.log('Offer received from: ' + message.from);
         if (message.to === drone.clientId)
           handleOfferCallbacks.set(drone.clientId, handleOffer.bind(null, message.offer, member, message.from));
         break;
@@ -106,17 +113,14 @@ drone.on('open', (error) => {
           handleNewICECandidate(message.candidate, member);
         break;
       case 'connected':
-        console.log('Connected to: ' + message.from);
         if (message.to === drone.clientId)
           handleConnected(member);
         break;
       case 'connected-with':
-        console.log('Connected with: ' + message.from);
         if (message.to === drone.clientId)
           handleConnectedWith(member, message.connectwithOthers);
         break;
       case 'offer-direct':
-        console.log('Direct offer received from: ' + message.from);
         if (message.to === drone.clientId)
           handleOffer(message.offer, member);
         break;
@@ -139,11 +143,12 @@ async function startCall() {
   // Broadcast "call-started"
   drone.publish({
     room: ROOM_NAME,
-    message: { type: 'call-started', from: drone.clientId }
+    message: { type: 'call-started', from: drone.clientId, callerID: drone.clientId }
   });
 
   for (const member of memberslist)
     await createOfferFor(member);
+  isCallActive = true;
 }
 
 async function hangup() {
@@ -169,10 +174,18 @@ async function hangup() {
   localVideo.srcObject = null;
   localVideo.muted = true;
   localVideo.style.display = "none";
+  isCallActive = false;
   localStream.getTracks().forEach(track => track.stop());
+
+
+  // if participant have left the call, he should be able to rejoin by clicking the button, he should inform owner the send another offer
+  // document.getElementById('joinCallBtn').style.display = callerID == drone.clientId ? 'none' : '';
+  // else
   document.getElementById('joinCallBtn').style.display = 'none';
-  document.getElementById('startCallBtn').disabled = false;
+
+
   document.getElementById('divControls').style.display = 'none';
+  document.getElementById('startCallBtn').disabled = false;
   document.getElementById('startCallBtn').style.display = "";
 }
 
@@ -194,6 +207,7 @@ async function joinCall() {
   await handleOfferCallback();
   handleOfferCallbacks.delete(drone.clientId);
   document.getElementById('divControls').style.display = '';
+  isCallActive = true;
 }
 
 // --- Initialize local camera ---
@@ -259,7 +273,8 @@ function createPeerConnection(memberId) {
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
   pc.ontrack = (event) => {
-    membersInCall.push(memberId);
+    if (!membersInCall.includes(memberId))
+      membersInCall.push(memberId);
 
     let video = document.getElementById(`video-${memberId}`);
     if (!video) {
@@ -269,7 +284,6 @@ function createPeerConnection(memberId) {
       video.playsInline = true;
       video.className = 'remoteVideo';
       videosContainer.prepend(video);
-      vibrate(100);
     }
     video.srcObject = event.streams[0];
   };
@@ -300,6 +314,11 @@ async function handleHangup(memberID) {
   }
   const video = document.getElementById(`video-${memberID}`);
   if (video) video.remove();
+
+  if (membersInCall.length === 0 && isCallActive) {
+    await hangup();
+    isCallActive = false;
+  }
 }
 
 // --- Handle offer ---
@@ -394,6 +413,9 @@ function handleConnected(member) {
 // --- Handle connected-with ---
 function handleConnectedWith(member, connectwithOthers) {
   for (const m of connectwithOthers) {
+    const isAlreadyConnected = membersInCall.find((member) => m === member.id);
+    if (isAlreadyConnected)
+      continue;
     const member = memberslist.find(e => e.id == m);
     if (!member)
       continue;
@@ -464,21 +486,4 @@ function ShowUserMessage(message) {
   setTimeout(() => {
     usermessage.remove();
   }, 5000);
-}
-
-function generateBeepSound() {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-
-  oscillator.type = 'sine'; // or 'square', 'sawtooth', 'triangle', 'sine'
-  oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // 440 Hz (A4 note)
-  gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-
-  oscillator.start();
-  gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.5); // Fade out over 0.5 seconds
-  oscillator.stop(audioCtx.currentTime + 0.5); // Stop after 0.5 seconds
 }
