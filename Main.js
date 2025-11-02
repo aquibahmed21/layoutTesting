@@ -58,7 +58,7 @@ drone.on('open', (error) => {
     memberslist = memberslist.filter((m) => m.id !== member.id);
     handleHangup(member.id);
     ShowUserMessage("Member left: " + member.id);
-      vibrate(100);
+    vibrate(100);
   });
 
   room.on('member_join', async (member) => {
@@ -130,7 +130,7 @@ drone.on('open', (error) => {
 
 // --- Owner: start call ---
 async function startCall() {
-  document.getElementById('startCallBtn').disabled = true;
+  document.getElementById('startCallBtn').style.display = "none";
   hasOwnerStartedTheCall = true;
 
   // Initialize local video
@@ -148,11 +148,14 @@ async function startCall() {
 
 async function hangup() {
   for (const memberID of membersInCall) {
-    if (peerConnections[memberID])
-    {
+    if (peerConnections[memberID]) {
       peerConnections[memberID].close();
       delete peerConnections[memberID];
     }
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: 'hangup', to: memberID, from: drone.clientId }
+    });
     const video = document.getElementById(`video-${memberID}`);
     if (video) {
       video.remove();
@@ -168,9 +171,9 @@ async function hangup() {
   localVideo.style.display = "none";
   localStream.getTracks().forEach(track => track.stop());
   document.getElementById('joinCallBtn').style.display = 'none';
-  document.getElementById('startCallBtn').style.display = 'inline';
   document.getElementById('startCallBtn').disabled = false;
   document.getElementById('divControls').style.display = 'none';
+  document.getElementById('startCallBtn').style.display = "";
 }
 
 // --- Participant: join call ---
@@ -288,15 +291,15 @@ function createPeerConnection(memberId) {
   return pc;
 }
 
-async function handleHangup (memberID) {
+async function handleHangup(memberID) {
   const index = membersInCall.indexOf(memberID);
-    if (index !== -1) membersInCall.splice(index, 1);
-    if (peerConnections[memberID]) {
-      peerConnections[memberID].close();
-      delete peerConnections[memberID];
-    }
-    const video = document.getElementById(`video-${memberID}`);
-    if (video) video.remove();
+  if (index !== -1) membersInCall.splice(index, 1);
+  if (peerConnections[memberID]) {
+    peerConnections[memberID].close();
+    delete peerConnections[memberID];
+  }
+  const video = document.getElementById(`video-${memberID}`);
+  if (video) video.remove();
 }
 
 // --- Handle offer ---
