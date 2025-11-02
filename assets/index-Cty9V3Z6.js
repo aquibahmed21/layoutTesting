@@ -133,7 +133,7 @@ drone.on("open", (error) => {
   });
 });
 async function startCall() {
-  document.getElementById("startCallBtn").disabled = true;
+  document.getElementById("startCallBtn").style.display = "none";
   hasOwnerStartedTheCall = true;
   await initLocalVideo();
   document.getElementById("divControls").style.display = "";
@@ -150,6 +150,10 @@ async function hangup() {
       peerConnections[memberID].close();
       delete peerConnections[memberID];
     }
+    drone.publish({
+      room: ROOM_NAME,
+      message: { type: "hangup", to: memberID, from: drone.clientId }
+    });
     const video = document.getElementById(`video-${memberID}`);
     if (video) {
       video.remove();
@@ -164,9 +168,9 @@ async function hangup() {
   localVideo.style.display = "none";
   localStream.getTracks().forEach((track) => track.stop());
   document.getElementById("joinCallBtn").style.display = "none";
-  document.getElementById("startCallBtn").style.display = "inline";
   document.getElementById("startCallBtn").disabled = false;
   document.getElementById("divControls").style.display = "none";
+  document.getElementById("startCallBtn").style.display = "";
 }
 async function joinCall() {
   await initLocalVideo();
