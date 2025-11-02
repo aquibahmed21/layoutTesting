@@ -12,7 +12,11 @@ let peerConnections = {}; // { memberId: RTCPeerConnection }
 let handleOfferCallbacks = new Map(); // { memberId: (offer, member) => void }
 
 const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const vibrate = (pattern) => navigator.vibrate(pattern);
+const vibrate = (pattern) => {
+  if (isMobileDevice)
+    navigator.vibrate(pattern);
+  generateBeepSound();
+};
 
 
 // --- DOM references ---
@@ -33,6 +37,7 @@ document.getElementById('startCallBtn').addEventListener('click', startCall);
 document.getElementById('joinCallBtn').addEventListener('click', joinCall);
 document.getElementById('permission').addEventListener('click', (e) => requestPermission("all"));
 document.getElementById('hangup').addEventListener('click', hangup);
+document.querySelector("body").addEventListener('click', generateBeepSound);
 
 // --- Connect to Scaledrone ---
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
@@ -53,8 +58,7 @@ drone.on('open', (error) => {
     memberslist = memberslist.filter((m) => m.id !== member.id);
     handleHangup(member.id);
     ShowUserMessage("Member left: " + member.id);
-    if (isMobileDevice)
-        vibrate(100);
+      vibrate(100);
   });
 
   room.on('member_join', async (member) => {
@@ -83,8 +87,7 @@ drone.on('open', (error) => {
           document.getElementById('joinCallBtn').style.display = 'inline';
           document.getElementById('startCallBtn').style.display = 'none';
           ShowUserMessage("Group video call started! by: " + message.from);
-          if (isMobileDevice)
-            vibrate([100, 50, 100]);
+          vibrate([100, 50, 100]);
         }
         break;
       case 'offer':
@@ -263,8 +266,7 @@ function createPeerConnection(memberId) {
       video.playsInline = true;
       video.className = 'remoteVideo';
       videosContainer.prepend(video);
-      if (isMobileDevice)
-        vibrate(100);
+      vibrate(100);
     }
     video.srcObject = event.streams[0];
   };
@@ -459,4 +461,21 @@ function ShowUserMessage(message) {
   setTimeout(() => {
     usermessage.remove();
   }, 5000);
+}
+
+function generateBeepSound() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.type = 'sine'; // or 'square', 'sawtooth', 'triangle', 'sine'
+  oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // 440 Hz (A4 note)
+  gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.start();
+  gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.5); // Fade out over 0.5 seconds
+  oscillator.stop(audioCtx.currentTime + 0.5); // Stop after 0.5 seconds
 }
