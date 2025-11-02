@@ -34,15 +34,21 @@ let drone;
 let room;
 let localStream;
 let memberslist = [];
-const membersInCall = [];
+let membersInCall = [];
 let hasOwnerStartedTheCall = false;
-const peerConnections = {};
-const handleOfferCallbacks = /* @__PURE__ */ new Map();
+let peerConnections = {};
+let handleOfferCallbacks = /* @__PURE__ */ new Map();
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const vibrate = (pattern) => navigator.vibrate(pattern);
 const localVideo = document.getElementById("localVideo");
 const videosContainer = document.getElementById("videosContainer");
 const pendingCandidates = {};
+const isPermissionsGranted = await QueryAll();
+document.getElementById(isPermissionsGranted ? "mainContainer" : "permission").style.display = "";
 document.getElementById("startCallBtn").addEventListener("click", startCall);
 document.getElementById("joinCallBtn").addEventListener("click", joinCall);
+document.getElementById("permission").addEventListener("click", (e) => requestPermission("all"));
+document.getElementById("hangup").addEventListener("click", hangup);
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
 drone.on("open", (error) => {
   if (error) return console.error(error);
@@ -50,18 +56,18 @@ drone.on("open", (error) => {
   room = drone.subscribe(ROOM_NAME);
   room.on("open", (error2) => {
     if (error2) console.error(error2);
+    ShowUserMessage("Connected to room");
   });
   room.on("members", async (members) => {
     memberslist = members.filter((member) => member.id !== drone.clientId);
+    ShowUserMessage("Connected to room with " + memberslist.length + " members");
   });
   room.on("member_leave", (member) => {
     memberslist = memberslist.filter((m) => m.id !== member.id);
-    if (peerConnections[member.id]) {
-      peerConnections[member.id].close();
-      delete peerConnections[member.id];
-    }
-    const video = document.getElementById(`video-${member.id}`);
-    if (video) video.remove();
+    handleHangup(member.id);
+    ShowUserMessage("Member left: " + member.id);
+    if (isMobileDevice)
+      vibrate(100);
   });
   room.on("member_join", async (member) => {
     const index = memberslist.findIndex((m) => m.id === member.id);
@@ -70,7 +76,7 @@ drone.on("open", (error) => {
     if (hasOwnerStartedTheCall && member.id !== drone.clientId) {
       drone.publish({
         room: ROOM_NAME,
-        message: { type: "call-started", from: USER_ID, to: member.id }
+        message: { type: "call-started", from: drone.clientId, to: member.id }
       });
       await createOfferFor(member);
     }
@@ -83,6 +89,9 @@ drone.on("open", (error) => {
           console.log("Group video call started! by: " + message.from);
           document.getElementById("joinCallBtn").style.display = "inline";
           document.getElementById("startCallBtn").style.display = "none";
+          ShowUserMessage("Group video call started! by: " + message.from);
+          if (isMobileDevice)
+            vibrate([100, 50, 100]);
         }
         break;
       case "offer":
@@ -113,6 +122,10 @@ drone.on("open", (error) => {
         if (message.to === drone.clientId)
           handleOffer(message.offer, member);
         break;
+      case "hangup":
+        if (message.to === drone.clientId)
+          handleHangup(member.id);
+        break;
     }
   });
 });
@@ -120,12 +133,37 @@ async function startCall() {
   document.getElementById("startCallBtn").disabled = true;
   hasOwnerStartedTheCall = true;
   await initLocalVideo();
+  document.getElementById("divControls").style.display = "";
   drone.publish({
     room: ROOM_NAME,
-    message: { type: "call-started", from: USER_ID }
+    message: { type: "call-started", from: drone.clientId }
   });
   for (const member of memberslist)
     await createOfferFor(member);
+}
+async function hangup() {
+  for (const memberID of membersInCall) {
+    if (peerConnections[memberID]) {
+      peerConnections[memberID].close();
+      delete peerConnections[memberID];
+    }
+    const video = document.getElementById(`video-${memberID}`);
+    if (video) {
+      video.remove();
+    }
+  }
+  membersInCall = [];
+  peerConnections = {};
+  handleOfferCallbacks = /* @__PURE__ */ new Map();
+  hasOwnerStartedTheCall = false;
+  localVideo.srcObject = null;
+  localVideo.muted = true;
+  localVideo.style.display = "none";
+  localStream.getTracks().forEach((track) => track.stop());
+  document.getElementById("joinCallBtn").style.display = "none";
+  document.getElementById("startCallBtn").style.display = "inline";
+  document.getElementById("startCallBtn").disabled = false;
+  document.getElementById("divControls").style.display = "none";
 }
 async function joinCall() {
   await initLocalVideo();
@@ -136,11 +174,13 @@ async function joinCall() {
     localVideo.srcObject = null;
     localVideo.muted = true;
     localVideo.style.display = "none";
+    ShowUserMessage("refresh and join again, callback not found");
     return;
   }
   document.getElementById("joinCallBtn").style.display = "none";
   await handleOfferCallback();
   handleOfferCallbacks.delete(drone.clientId);
+  document.getElementById("divControls").style.display = "";
 }
 async function initLocalVideo() {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -206,6 +246,8 @@ function createPeerConnection(memberId) {
       video.playsInline = true;
       video.className = "remoteVideo";
       videosContainer.prepend(video);
+      if (isMobileDevice)
+        vibrate(100);
     }
     video.srcObject = event.streams[0];
   };
@@ -223,6 +265,16 @@ function createPeerConnection(memberId) {
     }
   };
   return pc;
+}
+async function handleHangup(memberID) {
+  const index = membersInCall.indexOf(memberID);
+  if (index !== -1) membersInCall.splice(index, 1);
+  if (peerConnections[memberID]) {
+    peerConnections[memberID].close();
+    delete peerConnections[memberID];
+  }
+  const video = document.getElementById(`video-${memberID}`);
+  if (video) video.remove();
 }
 async function handleOffer(offer, member, callerID) {
   const pc = createPeerConnection(member.id);
@@ -302,4 +354,63 @@ function handleConnectedWith(member, connectwithOthers) {
       continue;
     createOfferFor(member2, true);
   }
+}
+async function queryPermission(type) {
+  try {
+    const permission = await navigator.permissions.query({ name: type });
+    if (permission.state === "granted")
+      return true;
+    else if (permission.state === "denied")
+      ShowUserMessage("You have denied " + type + " permission. Please allow it in your browser settings to use this feature.");
+    return false;
+  } catch (error) {
+    console.error(`Error querying permission for ${type}`, error);
+    return null;
+  }
+}
+async function QueryAll() {
+  const [camera, mic] = await Promise.all([
+    queryPermission("camera"),
+    queryPermission("microphone")
+  ]);
+  return camera && mic;
+}
+async function requestPermission(type = "camera" | "microphone" | "all") {
+  let stream = null;
+  document.getElementById("permission").disabled = true;
+  switch (type) {
+    case "camera":
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      break;
+    case "microphone":
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      break;
+    case "all":
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      break;
+    default:
+      console.error(`Unknown permission type: ${type}`);
+      break;
+  }
+  if (stream)
+    stream.getTracks().forEach((track) => track.stop());
+  const isGranted = type === "all" ? await QueryAll() : await queryPermission(type);
+  if (isGranted) {
+    document.getElementById("permission").disabled = false;
+    document.getElementById("permission").style.display = "none";
+    document.getElementById("mainContainer").style.display = "";
+  } else {
+    document.getElementById("permission").disabled = false;
+    document.getElementById("permission").style.display = "";
+    document.getElementById("mainContainer").style.display = "none";
+  }
+}
+function ShowUserMessage(message) {
+  const usermessage = document.createElement("p");
+  usermessage.classList.add("userMessage");
+  usermessage.innerHTML = message;
+  document.getElementById("divUserMessage").appendChild(usermessage);
+  setTimeout(() => {
+    usermessage.remove();
+  }, 5e3);
 }
