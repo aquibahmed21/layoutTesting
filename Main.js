@@ -6,10 +6,13 @@ let drone;
 let room;
 let localStream;
 let memberslist = [];
-const membersInCall = [];
+let membersInCall = [];
 let hasOwnerStartedTheCall = false;
-const peerConnections = {}; // { memberId: RTCPeerConnection }
-const handleOfferCallbacks = new Map(); // { memberId: (offer, member) => void }
+let peerConnections = {}; // { memberId: RTCPeerConnection }
+let handleOfferCallbacks = new Map(); // { memberId: (offer, member) => void }
+
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const vibrate = (pattern) => navigator.vibrate(pattern);
 
 
 // --- DOM references ---
@@ -19,13 +22,17 @@ const videosContainer = document.getElementById('videosContainer');
 // Store ICE candidates that arrive early
 const pendingCandidates = {}; // { memberId: RTCIceCandidate[] }
 
-// QueryAll();
+const isPermissionsGranted = await QueryAll();
+
+document.getElementById(isPermissionsGranted ? 'mainContainer' : 'permission').style.display = "";
+
 
 
 // --- Button listeners ---
 document.getElementById('startCallBtn').addEventListener('click', startCall);
 document.getElementById('joinCallBtn').addEventListener('click', joinCall);
-// document.getElementById('divPermission').addEventListener('click', (e) =>requestPermission(e.target.id));
+document.getElementById('permission').addEventListener('click', (e) => requestPermission("all"));
+document.getElementById('hangup').addEventListener('click', hangup);
 
 // --- Connect to Scaledrone ---
 drone = new Scaledrone(SCALEDRONE_CHANNEL_ID, { data: { userId: USER_ID } });
@@ -34,21 +41,20 @@ drone.on('open', (error) => {
   if (error) return console.error(error);
   document.getElementById("selfid").innerText = drone.clientId;
   room = drone.subscribe(ROOM_NAME);
-  room.on('open', (error) => { if (error) console.error(error); });
+  room.on('open', (error) => { if (error) console.error(error); ShowUserMessage("Connected to room"); });
 
   // Handle existing and new members
   room.on('members', async (members) => {
     memberslist = members.filter(member => member.id !== drone.clientId);
+    ShowUserMessage("Connected to room with " + memberslist.length + " members");
   });
 
   room.on('member_leave', (member) => {
     memberslist = memberslist.filter((m) => m.id !== member.id);
-    if (peerConnections[member.id]) {
-      peerConnections[member.id].close();
-      delete peerConnections[member.id];
-    }
-    const video = document.getElementById(`video-${member.id}`);
-    if (video) video.remove();
+    handleHangup(member.id);
+    ShowUserMessage("Member left: " + member.id);
+    if (isMobileDevice)
+        vibrate(100);
   });
 
   room.on('member_join', async (member) => {
@@ -60,7 +66,7 @@ drone.on('open', (error) => {
       // Broadcast "call-started"
       drone.publish({
         room: ROOM_NAME,
-        message: { type: 'call-started', from: USER_ID, to: member.id }
+        message: { type: 'call-started', from: drone.clientId, to: member.id }
       });
       await createOfferFor(member);
     }
@@ -72,11 +78,13 @@ drone.on('open', (error) => {
 
     switch (message.type) {
       case 'call-started':
-        if (message.to === drone.clientId || message.to === undefined)
-        {
+        if (message.to === drone.clientId || message.to === undefined) {
           console.log('Group video call started! by: ' + message.from);
           document.getElementById('joinCallBtn').style.display = 'inline';
           document.getElementById('startCallBtn').style.display = 'none';
+          ShowUserMessage("Group video call started! by: " + message.from);
+          if (isMobileDevice)
+            vibrate([100, 50, 100]);
         }
         break;
       case 'offer':
@@ -109,6 +117,10 @@ drone.on('open', (error) => {
         if (message.to === drone.clientId)
           handleOffer(message.offer, member);
         break;
+      case 'hangup':
+        if (message.to === drone.clientId)
+          handleHangup(member.id);
+        break;
     }
   });
 });
@@ -120,15 +132,42 @@ async function startCall() {
 
   // Initialize local video
   await initLocalVideo();
-
+  document.getElementById('divControls').style.display = '';
   // Broadcast "call-started"
   drone.publish({
     room: ROOM_NAME,
-    message: { type: 'call-started', from: USER_ID }
+    message: { type: 'call-started', from: drone.clientId }
   });
 
   for (const member of memberslist)
     await createOfferFor(member);
+}
+
+async function hangup() {
+  for (const memberID of membersInCall) {
+    if (peerConnections[memberID])
+    {
+      peerConnections[memberID].close();
+      delete peerConnections[memberID];
+    }
+    const video = document.getElementById(`video-${memberID}`);
+    if (video) {
+      video.remove();
+    }
+  }
+
+  membersInCall = [];
+  peerConnections = {};
+  handleOfferCallbacks = new Map();
+  hasOwnerStartedTheCall = false;
+  localVideo.srcObject = null;
+  localVideo.muted = true;
+  localVideo.style.display = "none";
+  localStream.getTracks().forEach(track => track.stop());
+  document.getElementById('joinCallBtn').style.display = 'none';
+  document.getElementById('startCallBtn').style.display = 'inline';
+  document.getElementById('startCallBtn').disabled = false;
+  document.getElementById('divControls').style.display = 'none';
 }
 
 // --- Participant: join call ---
@@ -141,12 +180,14 @@ async function joinCall() {
     localVideo.srcObject = null;
     localVideo.muted = true;
     localVideo.style.display = "none";
+    ShowUserMessage("refresh and join again, callback not found");
     return;
   }
   document.getElementById('joinCallBtn').style.display = 'none';
 
   await handleOfferCallback();
   handleOfferCallbacks.delete(drone.clientId);
+  document.getElementById('divControls').style.display = '';
 }
 
 // --- Initialize local camera ---
@@ -222,6 +263,8 @@ function createPeerConnection(memberId) {
       video.playsInline = true;
       video.className = 'remoteVideo';
       videosContainer.prepend(video);
+      if (isMobileDevice)
+        vibrate(100);
     }
     video.srcObject = event.streams[0];
   };
@@ -241,6 +284,17 @@ function createPeerConnection(memberId) {
   };
 
   return pc;
+}
+
+async function handleHangup (memberID) {
+  const index = membersInCall.indexOf(memberID);
+    if (index !== -1) membersInCall.splice(index, 1);
+    if (peerConnections[memberID]) {
+      peerConnections[memberID].close();
+      delete peerConnections[memberID];
+    }
+    const video = document.getElementById(`video-${memberID}`);
+    if (video) video.remove();
 }
 
 // --- Handle offer ---
@@ -323,15 +377,13 @@ async function handleNewICECandidate(candidate, member) {
 
 // --- Handle connected ---
 function handleConnected(member) {
-  // setTimeout(() => {
-    let connectwithOthers = membersInCall.filter((m) => m !== member.id && m !== drone.clientId);
-    if (connectwithOthers.length === 0) return;
-    connectwithOthers = Array.from(new Set(connectwithOthers));
-    drone.publish({
-      room: ROOM_NAME,
-      message: { type: 'connected-with', to: member.id, from: drone.clientId, connectwithOthers }
-    });
-  // }, 2000);
+  let connectwithOthers = membersInCall.filter((m) => m !== member.id && m !== drone.clientId);
+  if (connectwithOthers.length === 0) return;
+  connectwithOthers = Array.from(new Set(connectwithOthers));
+  drone.publish({
+    room: ROOM_NAME,
+    message: { type: 'connected-with', to: member.id, from: drone.clientId, connectwithOthers }
+  });
 }
 
 // --- Handle connected-with ---
@@ -347,7 +399,11 @@ function handleConnectedWith(member, connectwithOthers) {
 async function queryPermission(type) {
   try {
     const permission = await navigator.permissions.query({ name: type });
-    return permission.state === 'granted';
+    if (permission.state === 'granted')
+      return true;
+    else if (permission.state === 'denied')
+      ShowUserMessage("You have denied " + type + " permission. Please allow it in your browser settings to use this feature.");
+    return false;
   } catch (error) {
     console.error(`Error querying permission for ${type}`, error);
     return null;
@@ -359,25 +415,48 @@ async function QueryAll() {
     queryPermission("camera"),
     queryPermission("microphone")
   ]);
-  console.log({ camera, mic });
+  return camera && mic;
 }
 
 async function requestPermission(type = "camera" | "microphone" | "all") {
   let stream = null;
-  document.getElementById(type).disabled = true;
+  document.getElementById('permission').disabled = true;
   switch (type) {
     case "camera":
       stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop());
       break;
     case "microphone":
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      break;
+    case "all":
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       break;
     default:
       console.error(`Unknown permission type: ${type}`);
       break;
   }
-  const isGranted = await queryPermission(type);
-  document.getElementById(type).style.display = isGranted ? "none": "";
-  document.getElementById(type).disabled = false;
+  if (stream)
+    stream.getTracks().forEach(track => track.stop());
+  const isGranted = type === "all" ? await QueryAll() : await queryPermission(type);
+
+  if (isGranted) {
+    document.getElementById('permission').disabled = false;
+    document.getElementById('permission').style.display = "none";
+    document.getElementById('mainContainer').style.display = "";
+  }
+  else {
+    document.getElementById('permission').disabled = false;
+    document.getElementById('permission').style.display = "";
+    document.getElementById('mainContainer').style.display = "none";
+  }
+}
+
+function ShowUserMessage(message) {
+  const usermessage = document.createElement("p");
+  usermessage.classList.add("userMessage");
+  usermessage.innerHTML = message;
+  document.getElementById('divUserMessage').appendChild(usermessage);
+  setTimeout(() => {
+    usermessage.remove();
+  }, 5000);
 }
