@@ -14,11 +14,6 @@ let handleOfferCallbacks = new Map(); // { memberId: (offer, member) => void }
 let callerID = "";
 let isCallActive = false;
 
-const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-const vibrate = (pattern) => {
-  if (isMobileDevice)
-    navigator.vibrate(pattern);
-};
 
 
 // --- DOM references ---
@@ -95,12 +90,9 @@ drone.on('open', (error) => {
           document.getElementById('startCallBtn').style.display = 'none';
           callerID = message.callerID || message.from;
           ShowUserMessage("Group video call started! by: " + message.from);
-          vibrate([100, 50, 100]);
         }
         break;
       case 'offer':
-        // if (message.to === drone.clientId)
-        //   handleofferCallback = handleOffer.bind(null, message.offer, member);
         if (message.to === drone.clientId)
           handleOfferCallbacks.set(drone.clientId, handleOffer.bind(null, message.offer, member, message.from));
         break;
@@ -133,7 +125,8 @@ drone.on('open', (error) => {
 });
 
 // --- Owner: start call ---
-async function startCall() {
+async function startCall ()
+{
   document.getElementById('startCallBtn').style.display = "none";
   hasOwnerStartedTheCall = true;
 
@@ -242,32 +235,8 @@ async function createOfferFor(member, isDirectConnect = false) {
 function createPeerConnection(memberId) {
   const pc = new RTCPeerConnection({
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      {
-        url: 'turn:numb.viagenie.ca',
-        credential: 'muazkh',
-        username: 'webrtc@live.com'
-      },
-      {
-        url: 'turn:192.158.29.39:3478?transport=udp',
-        credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-        username: '28224511:1379330808'
-      },
-      {
-        url: 'turn:192.158.29.39:3478?transport=tcp',
-        credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-        username: '28224511:1379330808'
-      },
-      {
-        url: 'turn:turn.bistri.com:80',
-        credential: 'homeo',
-        username: 'homeo'
-      },
-      {
-        url: 'turn:turn.anyfirewall.com:443?transport=tcp',
-        credential: 'webrtc',
-        username: 'webrtc'
-      }]
+      { urls: 'stun:stun.l.google.com:19302' }
+      ]
   });
 
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
